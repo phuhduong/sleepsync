@@ -57,21 +57,17 @@ export const calculateRespRateDifference = (respRateData: number[], currentRespR
  * @param currentBiometrics - Object containing current biometric values
  * @returns Calculated melatonin dose
  */
-export function calculateDose(
+export const calculateDose = (
     base: number,
     R: number,
     T: number,
-    biometricData: {
-        hrv: number[];
-        rhr: number[];
-        respRate: number[];
-    },
+    biometricData: BiometricData,
     currentBiometrics: {
         hrv: number;
         rhr: number;
         respRate: number;
     }
-): number {
+): number => {
     // Calculate differences
     const hrvDiff = calculateHRVDifference(biometricData.hrv, currentBiometrics.hrv);
     const rhrDiff = calculateRHRDifference(biometricData.rhr, currentBiometrics.rhr);
@@ -84,6 +80,5 @@ export function calculateDose(
         (RHO * respRateDiff)
     );
 
-    // Ensure dose is never negative
-    return Math.max(0, dose);
-}
+    return dose;
+};

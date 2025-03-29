@@ -21,7 +21,9 @@ export function processBiometricData(
   rhrData: BiometricDataPoint[],
   respRateData: BiometricDataPoint[],
   baseDose: number,
-  targetTime: string
+  targetTime: string,
+  totalTime: number,
+  remainingTime: number
 ): ProcessedData[] {
   console.log('Input data lengths:', {
     hrv: hrvData.length,
@@ -57,17 +59,11 @@ export function processBiometricData(
     const rhrDiff = rhrMean - currentRHR;
     const respRateDiff = respRateMean - currentRespRate;
 
-    // Calculate R and T based on the algorithm requirements
-    // T is fixed at 24 hours
-    const T = 24;
-    // R starts at 24 and decreases by 1 for each hour
-    const R = 24 - index;
-
-    // Calculate dose using the formula
+    // Calculate dose using the formula with custom R and T values
     const dose = calculateDose(
       baseDose,
-      R,
-      T,
+      remainingTime,
+      totalTime,
       {
         hrv: hrvData.map(d => d.value),
         rhr: rhrData.map(d => d.value),
