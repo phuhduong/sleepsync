@@ -1,15 +1,28 @@
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { processBiometricData } from '../utils/dataProcessor';
+import DosePlot from '../components/DosePlot';
+import biometricData from '../data/sample_biometrics.json';
 
 export default function Sleep() {
   const [sleepTime, setSleepTime] = useState('');
   const [sleepDescription, setSleepDescription] = useState('');
+  const [processedData, setProcessedData] = useState<any[]>([]);
 
   const handleSubmit = () => {
-    // TODO: Process the sleep time and description
-    console.log('Sleep time:', sleepTime);
-    console.log('Sleep description:', sleepDescription);
+    if (!sleepTime) return;
+
+    // Process the data
+    const data = processBiometricData(
+      biometricData.historical_data.hrv,
+      biometricData.historical_data.rhr,
+      biometricData.historical_data.respiratory_rate,
+      biometricData.recommended_base_dose,
+      sleepTime
+    );
+
+    setProcessedData(data);
   };
 
   return (
@@ -45,6 +58,10 @@ export default function Sleep() {
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>Calculate Optimal Dose</Text>
         </TouchableOpacity>
+
+        {processedData.length > 0 && (
+          <DosePlot data={processedData} />
+        )}
 
         <View style={styles.navigation}>
           <Link href="/" style={styles.link}>
