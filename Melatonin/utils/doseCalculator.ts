@@ -73,6 +73,18 @@ export const calculateDose = (
     const rhrDiff = calculateRHRDifference(biometricData.rhr, currentBiometrics.rhr);
     const respRateDiff = calculateRespRateDifference(biometricData.respRate, currentBiometrics.respRate);
 
+    console.log('Dose calculation inputs:', {
+        base,
+        R,
+        T,
+        hrvDiff,
+        rhrDiff,
+        respRateDiff,
+        ALPHA,
+        BETA,
+        RHO
+    });
+
     // Calculate the dose using the formula
     const dose = base + (R / T) * (
         (ALPHA * hrvDiff) +
@@ -80,5 +92,6 @@ export const calculateDose = (
         (RHO * respRateDiff)
     );
 
+    console.log('Dose calculation result:', dose);
     return dose;
 };

@@ -54,10 +54,28 @@ export function processBiometricData(
     const currentRHR = recentRHR[index].value;
     const currentRespRate = recentRespRate[index].value;
 
+    console.log('Current values:', {
+      currentHRV,
+      currentRHR,
+      currentRespRate,
+      remainingTime,
+      totalTime,
+      baseDose
+    });
+
     // Calculate differences from mean
     const hrvDiff = hrvMean - currentHRV;
     const rhrDiff = rhrMean - currentRHR;
     const respRateDiff = respRateMean - currentRespRate;
+
+    console.log('Differences:', {
+      hrvDiff,
+      rhrDiff,
+      respRateDiff,
+      hrvMean,
+      rhrMean,
+      respRateMean
+    });
 
     // Calculate dose using the formula with custom R and T values
     const dose = calculateDose(
@@ -75,6 +93,8 @@ export function processBiometricData(
         respRate: currentRespRate
       }
     );
+
+    console.log('Calculated dose:', dose);
 
     // Calculate hour (23 to 0)
     const hour = 23 - index;
