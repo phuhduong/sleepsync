@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 
 import { Link } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
+import { sendDoseToESP8266 } from '../utils/esp8266';
 import DosePlot from '../components/DosePlot';
 import biometricData from '../data/sample_biometrics.json';
 
@@ -27,7 +28,7 @@ export default function Sleep() {
     return () => clearInterval(interval);
   }, [isTimerRunning, timeRemaining]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!sleepMinutes) return;
 
     const minutes = parseInt(sleepMinutes);
@@ -56,6 +57,18 @@ export default function Sleep() {
     );
 
     setProcessedData(data);
+
+    // Get the latest calculated dose
+    const latestDose = data[data.length - 1].calculatedDose;
+
+    try {
+      // Send the dose to ESP8266
+      await sendDoseToESP8266(latestDose);
+      console.log('Dose sent successfully to ESP8266');
+    } catch (error) {
+      console.error('Failed to send dose to ESP8266:', error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleCancel = () => {
