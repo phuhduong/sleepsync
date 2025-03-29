@@ -1,14 +1,15 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
 import { getFitbitData } from '../utils/fitbitApi';
+import { analyzeSleepDescription, getGlobalFeedback } from '../utils/geminiApi';
 import DosePlot from '../components/DosePlot';
 import biometricData from '../data/sample_biometrics.json';
 
 // ESP8266 configuration
-const ESP8266_IP = "192.168.4.3";
-const ESP8266_PORT = "80";
+const ESP8266_IP = process.env.EXPO_PUBLIC_ESP8266_IP || "192.168.4.1";
+const ESP8266_PORT = process.env.EXPO_PUBLIC_ESP8266_PORT || "80";
 
 const checkESP8266Connection = async () => {
   try {
@@ -101,6 +102,7 @@ export default function Sleep() {
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [feedbackScore, setFeedbackScore] = useState<number>(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -115,6 +117,30 @@ export default function Sleep() {
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timeRemaining]);
+
+  const handleAnalyzeDescription = async () => {
+    if (!sleepDescription.trim()) {
+      Alert.alert("Error", "Please enter a sleep description to analyze");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log("Analyzing sleep description...");
+      const score = await analyzeSleepDescription(sleepDescription);
+      setFeedbackScore(score);
+      console.log("Sleep feedback score:", score);
+      Alert.alert(
+        "Analysis Complete",
+        `Sleep quality adjustment: ${(score * 100).toFixed(1)}%`
+      );
+    } catch (error) {
+      console.error("Error analyzing sleep description:", error);
+      Alert.alert("Error", "Failed to analyze sleep description. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     console.log("Submit button pressed");
@@ -173,6 +199,12 @@ export default function Sleep() {
         );
       }
 
+      // Apply feedback to the calculated doses
+      data = data.map(item => ({
+        ...item,
+        calculatedDose: item.calculatedDose * (1 + getGlobalFeedback())
+      }));
+
       console.log("Processed data length:", data.length);
       setProcessedData(data);
 
@@ -183,7 +215,7 @@ export default function Sleep() {
         const success = await sendNumberToESP8266(mostRecentDose);
         console.log("Send success:", success);
         if (success) {
-          setSuccessMessage(`Sent ${mostRecentDose.toFixed(2)} mg/hour to ESP8266`);
+          setSuccessMessage(`Sent ${mostRecentDose.toFixed(2)} mg/hour to ESP8266 (Feedback: ${(getGlobalFeedback() * 100).toFixed(1)}%)`);
         } else {
           setSuccessMessage("Failed to send to ESP8266. Please check your connection.");
         }
@@ -254,14 +286,38 @@ export default function Sleep() {
 
         <View style={styles.inputSection}>
           <Text style={styles.label}>How would you describe your sleep?</Text>
-          <TextInput
-            style={styles.descriptionInput}
-            placeholder="Describe your sleep patterns, quality, or any concerns..."
-            value={sleepDescription}
-            onChangeText={setSleepDescription}
-            multiline
-            numberOfLines={4}
-          />
+          <View style={styles.descriptionContainer}>
+            <TextInput
+              style={styles.descriptionInput}
+              placeholder="Describe your sleep patterns, quality, or any concerns..."
+              value={sleepDescription}
+              onChangeText={setSleepDescription}
+              multiline
+              numberOfLines={4}
+            />
+            <Pressable 
+              style={({ pressed }) => [
+                styles.analyzeButton,
+                pressed && styles.buttonPressed
+              ]}
+              onPress={handleAnalyzeDescription}
+              disabled={isLoading}
+            >
+              <Text style={styles.analyzeButtonText}>
+                {isLoading ? 'Analyzing...' : 'Analyze'}
+              </Text>
+            </Pressable>
+          </View>
+          {feedbackScore !== 0 && (
+            <View style={styles.feedbackContainer}>
+              <Text style={[
+                styles.feedbackText,
+                feedbackScore > 0 ? styles.positiveFeedback : styles.negativeFeedback
+              ]}>
+                Sleep Analysis: {(feedbackScore * 100).toFixed(1)}% adjustment
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.buttonContainer}>
@@ -323,6 +379,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     paddingBottom: 60,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    }),
   },
   header: {
     padding: 20,
@@ -367,7 +437,13 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
   },
+  descriptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
   descriptionInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#DDDDDD',
     borderRadius: 8,
@@ -470,5 +546,36 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  feedbackContainer: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  feedbackText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  positiveFeedback: {
+    color: '#4CAF50',
+  },
+  negativeFeedback: {
+    color: '#F44336',
+  },
+  analyzeButton: {
+    backgroundColor: '#4A90E2',
+    padding: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    minWidth: 80,
+    height: 40,
+    marginTop: 8,
+  },
+  analyzeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 }); 
