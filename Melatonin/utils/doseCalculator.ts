@@ -5,9 +5,9 @@ interface BiometricData {
 }
 
 // Constants for the algorithm
-const ALPHA = 0.02;
-const BETA = 0.05;
-const RHO = 0.03;
+const ALPHA = 0.2;
+const BETA = 0.5;
+const RHO = 0.3;
 
 /**
  * Calculate the mean of an array of numbers
@@ -57,17 +57,21 @@ export const calculateRespRateDifference = (respRateData: number[], currentRespR
  * @param currentBiometrics - Object containing current biometric values
  * @returns Calculated melatonin dose
  */
-export const calculateDose = (
+export function calculateDose(
     base: number,
     R: number,
     T: number,
-    biometricData: BiometricData,
+    biometricData: {
+        hrv: number[];
+        rhr: number[];
+        respRate: number[];
+    },
     currentBiometrics: {
         hrv: number;
         rhr: number;
         respRate: number;
     }
-): number => {
+): number {
     // Calculate differences
     const hrvDiff = calculateHRVDifference(biometricData.hrv, currentBiometrics.hrv);
     const rhrDiff = calculateRHRDifference(biometricData.rhr, currentBiometrics.rhr);
@@ -80,5 +84,6 @@ export const calculateDose = (
         (RHO * respRateDiff)
     );
 
-    return dose;
-};
+    // Ensure dose is never negative
+    return Math.max(0, dose);
+}

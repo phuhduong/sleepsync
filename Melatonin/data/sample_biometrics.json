@@ -2916,7 +2916,7 @@
         "wake_time": "07:00",
         "quality": "good",
         "description": "Slept well, woke up refreshed",
-        "dose_taken": 5,
+        "dose_taken": 0.1,
         "hrv_during_sleep": 58,
         "rhr_during_sleep": 62,
         "respiratory_rate_during_sleep": 11
@@ -2927,19 +2927,19 @@
         "wake_time": "06:30",
         "quality": "fair",
         "description": "Took longer to fall asleep",
-        "dose_taken": 5,
+        "dose_taken": 0.1,
         "hrv_during_sleep": 52,
         "rhr_during_sleep": 65,
         "respiratory_rate_during_sleep": 12
       }
     ],
-    "recommended_base_dose": 5,
+    "recommended_base_dose": 0.1,
     "user_preferences": {
       "target_sleep_time": "23:00",
       "target_wake_time": "07:00",
       "preferred_dose_range": {
-        "min": 3,
-        "max": 10
+        "min": 0.01,
+        "max": 3
       }
     }
   }

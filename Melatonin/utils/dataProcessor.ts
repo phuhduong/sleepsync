@@ -45,11 +45,6 @@ export function processBiometricData(
     respRate: recentRespRate.length
   });
 
-  // Parse target time
-  const targetDateTime = new Date(targetTime);
-  const targetHour = targetDateTime.getHours();
-  const targetMinutes = targetDateTime.getMinutes();
-
   // Calculate differences and doses for each point
   const processedData = recentHRV.map((hrvPoint, index) => {
     // Get current values
@@ -63,17 +58,10 @@ export function processBiometricData(
     const respRateDiff = respRateMean - currentRespRate;
 
     // Calculate R and T based on the algorithm requirements
-    const currentTime = new Date(hrvPoint.timestamp);
-    const currentHour = currentTime.getHours();
-    const currentMinutes = currentTime.getMinutes();
-
-    // Calculate remaining time (R) in hours
-    let R = targetHour - currentHour;
-    if (R < 0) R += 24; // If target is next day
-    R += (targetMinutes - currentMinutes) / 60; // Add minutes as fraction of hour
-
-    // T is the target time in hours
-    const T = targetHour + targetMinutes / 60;
+    // T is fixed at 24 hours
+    const T = 24;
+    // R starts at 24 and decreases by 1 for each hour
+    const R = 24 - index;
 
     // Calculate dose using the formula
     const dose = calculateDose(

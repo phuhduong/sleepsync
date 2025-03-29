@@ -22,7 +22,7 @@ export default function Data() {
   const doses = sortedData.map(d => d.calculatedDose);
   const minDose = Math.min(...doses);
   const maxDose = Math.max(...doses);
-  const yAxisMin = Math.max(0, minDose - 0.5);
+  const yAxisMin = 0; // Always start at 0
   const yAxisMax = maxDose + 0.5;
 
   const chartConfig = {
@@ -76,7 +76,7 @@ export default function Data() {
             yAxisLabel=""
             yAxisSuffix=" mg/hr"
             segments={4}
-            fromZero={false}
+            fromZero
             withDots={true}
             withInnerLines={true}
             withOuterLines={true}
@@ -85,8 +85,6 @@ export default function Data() {
             withVerticalLabels={true}
             withHorizontalLabels={true}
             withShadow={false}
-            yAxisMin={yAxisMin}
-            yAxisMax={yAxisMax}
           />
         </View>
 
