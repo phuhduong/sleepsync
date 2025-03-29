@@ -1,10 +1,95 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Alert } from 'react-native';
+import { Link, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
-import { sendDoseToESP8266 } from '../utils/esp8266';
+import { getFitbitData } from '../utils/fitbitApi';
 import DosePlot from '../components/DosePlot';
 import biometricData from '../data/sample_biometrics.json';
+
+// ESP8266 configuration
+const ESP8266_IP = "192.168.4.3";
+const ESP8266_PORT = "80";
+
+const checkESP8266Connection = async () => {
+  try {
+    console.log("Checking ESP8266 connection at:", ESP8266_IP);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    const response = await fetch(`http://${ESP8266_IP}:${ESP8266_PORT}`, {
+      signal: controller.signal,
+      mode: 'no-cors', // Changed to no-cors to bypass CORS restrictions
+      headers: {
+        'Accept': 'text/plain',
+      }
+    });
+    clearTimeout(timeoutId);
+    console.log("ESP8266 connection check response:", response.status);
+    return true; // In no-cors mode, we can't check response.ok
+  } catch (error) {
+    console.log("ESP8266 not reachable:", error);
+    return false;
+  }
+};
+
+const sendNumberToESP8266 = async (calculatedNumber: number) => {
+  try {
+    console.log("Attempting to send to ESP8266 at:", ESP8266_IP);
+    console.log("Value being sent:", calculatedNumber);
+    
+    // First check if ESP8266 is reachable
+    const isReachable = await checkESP8266Connection();
+    if (!isReachable) {
+      Alert.alert(
+        "Connection Error",
+        "ESP8266 is not reachable. Please check:\n1. ESP8266 is powered on\n2. You're connected to the correct WiFi network\n3. ESP8266 IP address is correct\n4. Try accessing http://" + ESP8266_IP + " in your browser",
+        [{ text: "OK" }]
+      );
+      return false;
+    }
+    
+    const url = `http://${ESP8266_IP}:${ESP8266_PORT}/?value=${calculatedNumber}`;
+    console.log("Full URL:", url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      mode: 'no-cors', // Changed to no-cors to bypass CORS restrictions
+      headers: {
+        'Accept': 'text/plain',
+      }
+    });
+    clearTimeout(timeoutId);
+    
+    console.log("Response status:", response.status);
+    console.log("Response type:", response.type);
+    
+    // In no-cors mode, we can't read the response, but we can check if the request was sent
+    if (response.type === 'opaque') {
+      console.log("Request was sent successfully (opaque response)");
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Detailed error sending data:", error);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      Alert.alert(
+        "Connection Error",
+        "Could not connect to ESP8266. Please check:\n1. ESP8266 is powered on\n2. You're connected to the correct WiFi network\n3. ESP8266 IP address is correct\n4. Try accessing http://" + ESP8266_IP + " in your browser",
+        [{ text: "OK" }]
+      );
+    }
+    return false;
+  }
+};
+
+const extractValues = (data: { timestamp: string; value: number }[]): number[] => {
+  return data.map(point => point.value);
+};
 
 export default function Sleep() {
   const [sleepMinutes, setSleepMinutes] = useState('');
@@ -14,6 +99,9 @@ export default function Sleep() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [totalTime, setTotalTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -29,10 +117,21 @@ export default function Sleep() {
   }, [isTimerRunning, timeRemaining]);
 
   const handleSubmit = async () => {
-    if (!sleepMinutes) return;
+    console.log("Submit button pressed");
+    if (!sleepMinutes) {
+      Alert.alert("Error", "Please enter the number of minutes");
+      return;
+    }
 
     const minutes = parseInt(sleepMinutes);
-    if (isNaN(minutes) || minutes <= 0) return;
+    if (isNaN(minutes) || minutes <= 0) {
+      Alert.alert("Error", "Please enter a valid number of minutes");
+      return;
+    }
+
+    console.log("Processing with minutes:", minutes);
+    setSuccessMessage(null);
+    setIsLoading(true);
 
     // Set the timer and total time
     const totalSeconds = minutes * 60;
@@ -45,29 +144,58 @@ export default function Sleep() {
     const targetTime = new Date();
     targetTime.setMinutes(targetTime.getMinutes() + minutes);
 
-    // Process the data with R and T values
-    const data = processBiometricData(
-      biometricData.historical_data.hrv,
-      biometricData.historical_data.rhr,
-      biometricData.historical_data.respiratory_rate,
-      biometricData.recommended_base_dose,
-      targetTime.toISOString(),
-      totalSeconds, // T: total time in seconds
-      totalSeconds  // R: remaining time in seconds (initially equal to T)
-    );
-
-    setProcessedData(data);
-
-    // Get the latest calculated dose
-    const latestDose = data[data.length - 1].calculatedDose;
-
     try {
-      // Send the dose to ESP8266
-      await sendDoseToESP8266(latestDose);
-      console.log('Dose sent successfully to ESP8266');
+      // Try to get data from Fitbit API first
+      const fitbitData = await getFitbitData();
+      let data;
+      
+      if (fitbitData) {
+        console.log("Using Fitbit data");
+        data = processBiometricData(
+          fitbitData.hrv,
+          fitbitData.rhr,
+          fitbitData.respiratory_rate,
+          biometricData.recommended_base_dose,
+          targetTime.toISOString(),
+          totalSeconds,
+          totalSeconds
+        );
+      } else {
+        console.log("Using fallback JSON data");
+        data = processBiometricData(
+          biometricData.historical_data.hrv,
+          biometricData.historical_data.rhr,
+          biometricData.historical_data.respiratory_rate,
+          biometricData.recommended_base_dose,
+          targetTime.toISOString(),
+          totalSeconds,
+          totalSeconds
+        );
+      }
+
+      console.log("Processed data length:", data.length);
+      setProcessedData(data);
+
+      // Send the most recent hour's dose to ESP8266 (hour 23)
+      if (data.length > 0) {
+        const mostRecentDose = data[0].calculatedDose;
+        console.log("Most recent dose:", mostRecentDose);
+        const success = await sendNumberToESP8266(mostRecentDose);
+        console.log("Send success:", success);
+        if (success) {
+          setSuccessMessage(`Sent ${mostRecentDose.toFixed(2)} mg/hour to ESP8266`);
+        } else {
+          setSuccessMessage("Failed to send to ESP8266. Please check your connection.");
+        }
+      } else {
+        console.log("No data to send");
+        setSuccessMessage("No data available to send");
+      }
     } catch (error) {
-      console.error('Failed to send dose to ESP8266:', error);
-      // You might want to show an error message to the user here
+      console.error("Error in handleSubmit:", error);
+      setSuccessMessage("Error processing data. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -80,6 +208,7 @@ export default function Sleep() {
     setTotalTime(null);
     setElapsedTime(0);
     setIsTimerRunning(false);
+    setSuccessMessage(null);
   };
 
   const formatTime = (seconds: number): string => {
@@ -136,34 +265,53 @@ export default function Sleep() {
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.submitButton, isTimerRunning && styles.submitButtonDisabled]} 
+          <Pressable 
+            style={({ pressed }) => [
+              styles.submitButton,
+              (isTimerRunning || isLoading) && styles.submitButtonDisabled,
+              pressed && styles.buttonPressed
+            ]}
             onPress={handleSubmit}
-            disabled={isTimerRunning}
+            disabled={isTimerRunning || isLoading}
           >
             <Text style={styles.submitButtonText}>
-              {isTimerRunning ? 'Timer Running...' : 'Calculate Optimal Dose'}
+              {isLoading ? 'Loading...' : isTimerRunning ? 'Timer Running...' : 'Calculate Optimal Dose'}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
           {isTimerRunning && (
-            <TouchableOpacity 
-              style={styles.cancelButton} 
+            <Pressable 
+              style={({ pressed }) => [
+                styles.cancelButton,
+                pressed && styles.buttonPressed
+              ]}
               onPress={handleCancel}
             >
               <Text style={styles.cancelButtonText}>Cancel Sleep</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
+
+        {successMessage && (
+          <View style={styles.successMessage}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        )}
 
         {processedData.length > 0 && (
           <DosePlot data={processedData} />
         )}
 
         <View style={styles.navigation}>
-          <Link href="/" style={styles.link}>
-            Back to Home
-          </Link>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.link,
+              pressed && styles.buttonPressed
+            ]}
+            onPress={() => router.push('/')}
+          >
+            <Text style={styles.linkText}>Back to Home</Text>
+          </Pressable>
         </View>
       </View>
     </ScrollView>
@@ -174,6 +322,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    paddingBottom: 60,
   },
   header: {
     padding: 20,
@@ -301,5 +450,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 150,
     textAlign: 'center',
+  },
+  successMessage: {
+    backgroundColor: '#4CAF50',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  successText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonPressed: {
+    opacity: 0.7,
+  },
+  linkText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 
