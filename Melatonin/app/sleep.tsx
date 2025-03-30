@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Alert, Platfo
 import { Link, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
+import { sendDoseToESP8266 } from '../utils/esp8266';
+import { updateLatestDosage, getLatestDosage } from '../utils/globalState';
 import { getFitbitData } from '../utils/fitbitApi';
 import { analyzeSleepDescription, getGlobalFeedback } from '../utils/geminiApi';
 import DosePlot from '../components/DosePlot';
@@ -208,6 +210,14 @@ export default function Sleep() {
       console.log("Processed data length:", data.length);
       setProcessedData(data);
 
+    // Get the latest calculated dose and update global state
+    const latestDose = data[data.length - 1].calculatedDose;
+    updateLatestDosage(latestDose);
+
+    try {
+      // Send the dose to ESP8266
+      await sendDoseToESP8266(latestDose);
+      console.log('Dose sent successfully to ESP8266');
       // Send the most recent hour's dose to ESP8266 (hour 23)
       if (data.length > 0) {
         const mostRecentDose = data[0].calculatedDose;
@@ -224,6 +234,7 @@ export default function Sleep() {
         setSuccessMessage("No data available to send");
       }
     } catch (error) {
+      console.error('Failed to send dose to ESP8266:', error);
       console.error("Error in handleSubmit:", error);
       setSuccessMessage("Error processing data. Please try again.");
     } finally {
@@ -259,21 +270,33 @@ export default function Sleep() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Plan Your Sleep</Text>
-        <Text style={styles.subtitle}>Set your sleep duration</Text>
+        <Text style={styles.subtitle}>Calculate optimal melatonin dose</Text>
       </View>
 
       <View style={styles.content}>
-        <View style={styles.inputSection}>
-          <Text style={styles.label}>How many minutes until you want to sleep?</Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Minutes until sleep:</Text>
           <TextInput
-            style={styles.timeInput}
-            placeholder="Enter minutes (e.g., 30)"
+            style={styles.input}
             value={sleepMinutes}
             onChangeText={setSleepMinutes}
             keyboardType="numeric"
+            placeholder="Enter minutes"
+            editable={!isTimerRunning}
           />
         </View>
 
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Sleep description (optional):</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={sleepDescription}
+            onChangeText={setSleepDescription}
+            placeholder="How are you feeling?"
+            multiline
+            numberOfLines={3}
+            editable={!isTimerRunning}
+          />
         {timeRemaining !== null && (
           <View style={styles.timerContainer}>
             <Text style={styles.timerLabel}>Time Remaining:</Text>
@@ -319,6 +342,13 @@ export default function Sleep() {
             </View>
           )}
         </View>
+
+        {isTimerRunning && (
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerLabel}>Time Remaining:</Text>
+            <Text style={styles.timer}>{formatTime(timeRemaining || 0)}</Text>
+          </View>
+        )}
 
         <View style={styles.buttonContainer}>
           <Pressable 
@@ -413,26 +443,17 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  inputSection: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 10,
+  inputContainer: {
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#333333',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  timeInput: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
+  input: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -445,68 +466,53 @@ const styles = StyleSheet.create({
   descriptionInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#CCCCCC',
     fontSize: 16,
+  },
+  textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
   timerContainer: {
     backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
+    borderRadius: 8,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 20,
   },
   timerLabel: {
     fontSize: 16,
     color: '#666666',
     marginBottom: 8,
   },
-  timerValue: {
+  timer: {
     fontSize: 36,
     fontWeight: 'bold',
     color: '#4A90E2',
   },
-  timerSubtext: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 8,
-  },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
+    marginBottom: 20,
   },
   submitButton: {
-    flex: 1,
     backgroundColor: '#4A90E2',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
-    marginRight: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#CCCCCC',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#FF4444',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginLeft: 10,
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: '#FF4444',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
   },
   cancelButtonText: {
     color: '#FFFFFF',

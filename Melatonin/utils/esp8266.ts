@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const ESP8266_BASE_URL = 'http://192.168.1.1'; // Replace with your ESP8266's IP address
+const ESP8266_BASE_URL = 'http://192.168.4.1'; // ESP8266 Access Point IP address
 
 /**
  * Sends the calculated melatonin dose to the ESP8266
@@ -9,14 +7,34 @@ const ESP8266_BASE_URL = 'http://192.168.1.1'; // Replace with your ESP8266's IP
  */
 export const sendDoseToESP8266 = async (dose: number): Promise<void> => {
     try {
-        await axios.get(`${ESP8266_BASE_URL}/dose`, {
-            params: {
-                value: dose
-            }
+        console.log('--- Sending Dose to ESP8266 ---');
+        console.log('URL:', ESP8266_BASE_URL);
+        console.log('Dose value:', dose);
+        
+        const url = new URL(`${ESP8266_BASE_URL}/dose`);
+        url.searchParams.append('value', dose.toString());
+        
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'text/plain',
+                'Content-Type': 'text/plain'
+            },
+            mode: 'cors'
         });
-        console.log('Successfully sent dose to ESP8266:', dose);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.text();
+        console.log('ESP8266 Response Status:', response.status);
+        console.log('ESP8266 Response Data:', data);
+        console.log('--- End ESP8266 Communication ---\n');
     } catch (error) {
-        console.error('Error sending dose to ESP8266:', error);
+        console.error('--- ESP8266 Communication Error ---');
+        console.error('Error:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('--- End Error Details ---\n');
         throw error;
     }
 }; 
