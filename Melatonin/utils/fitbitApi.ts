@@ -1,11 +1,10 @@
-import { Alert } from 'react-native';
 import { BiometricDataPoint } from './dataProcessor';
 import * as WebBrowser from 'expo-web-browser';
 
 // Fitbit API configuration
 const FITBIT_CLIENT_ID = process.env.EXPO_PUBLIC_FITBIT_CLIENT_ID;
 const FITBIT_CLIENT_SECRET = process.env.EXPO_PUBLIC_FITBIT_CLIENT_SECRET;
-const FITBIT_REDIRECT_URI = 'melatonin://oauth/callback';
+const FITBIT_REDIRECT_URI = 'http://localhost:8081/sleep';
 const FITBIT_API_BASE = 'https://api.fitbit.com/1/user/-';
 const FITBIT_AUTH_BASE = 'https://www.fitbit.com/oauth2/authorize';
 const FITBIT_TOKEN_BASE = 'https://api.fitbit.com/oauth2/token';
@@ -173,17 +172,17 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
 
-    // Fetch HRV data
+    // Fetch HRV data (hourly)
     const hrvResponse = await fetch(`${FITBIT_API_BASE}/hrv/date/${today}/1d.json`, { headers });
     if (!hrvResponse.ok) throw new Error('Failed to fetch HRV data');
     const hrvData = await hrvResponse.json();
 
-    // Fetch RHR data
+    // Fetch RHR data (hourly)
     const rhrResponse = await fetch(`${FITBIT_API_BASE}/activities/heart/date/${today}/1d.json`, { headers });
     if (!rhrResponse.ok) throw new Error('Failed to fetch RHR data');
     const rhrData = await rhrResponse.json();
 
-    // Fetch respiratory rate data
+    // Fetch respiratory rate data (hourly)
     const respResponse = await fetch(`${FITBIT_API_BASE}/respiratory-rate/date/${today}/1d.json`, { headers });
     if (!respResponse.ok) throw new Error('Failed to fetch respiratory rate data');
     const respData = await respResponse.json();
@@ -219,7 +218,7 @@ export async function getBiometricData(): Promise<FitbitData> {
   const credentials: FitbitCredentials = {
     clientId: FITBIT_CLIENT_ID || '',
     clientSecret: FITBIT_CLIENT_SECRET || '',
-    accessToken: await getFitbitAccessToken() || undefined
+    accessToken: await getFitbitAccessToken()
   };
 
   // Try to fetch data from Fitbit
@@ -238,22 +237,4 @@ export async function getBiometricData(): Promise<FitbitData> {
     rhr: jsonData.historical_data.rhr,
     respiratoryRate: jsonData.historical_data.respiratory_rate
   };
-}
-
-const fetchFitbitHRV = async (accessToken: string): Promise<BiometricDataPoint[]> => {
-  // TODO: Implement actual Fitbit API call
-  // This should fetch HRV data for the last 24 hours
-  return [];
-};
-
-const fetchFitbitRHR = async (accessToken: string): Promise<BiometricDataPoint[]> => {
-  // TODO: Implement actual Fitbit API call
-  // This should fetch resting heart rate data for the last 24 hours
-  return [];
-};
-
-const fetchFitbitRespiratoryRate = async (accessToken: string): Promise<BiometricDataPoint[]> => {
-  // TODO: Implement actual Fitbit API call
-  // This should fetch respiratory rate data for the last 24 hours
-  return [];
-}; 
+} 
