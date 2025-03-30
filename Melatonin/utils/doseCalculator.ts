@@ -1,3 +1,5 @@
+import { getGlobalFeedback } from './geminiApi';
+
 interface BiometricData {
     hrv: number[];
     rhr: number[];
@@ -8,6 +10,7 @@ interface BiometricData {
 const ALPHA = 0.2;
 const BETA = 0.5;
 const RHO = 0.3;
+const FEEDBACK_WEIGHT = 0.3; // Weight for the feedback adjustment
 
 /**
  * Calculate the mean of an array of numbers
@@ -73,6 +76,9 @@ export const calculateDose = (
     const rhrDiff = calculateRHRDifference(biometricData.rhr, currentBiometrics.rhr);
     const respRateDiff = calculateRespRateDifference(biometricData.respRate, currentBiometrics.respRate);
 
+    // Get the feedback value
+    const feedback = getGlobalFeedback();
+
     console.log('Dose calculation inputs:', {
         base,
         R,
@@ -80,17 +86,19 @@ export const calculateDose = (
         hrvDiff,
         rhrDiff,
         respRateDiff,
+        feedback,
         ALPHA,
         BETA,
-        RHO
+        RHO,
+        FEEDBACK_WEIGHT
     });
 
-    // Calculate the dose using the formula
+    // Calculate the dose using the formula with feedback adjustment
     const dose = base + (R / T) * (
         (ALPHA * hrvDiff) +
         (BETA * rhrDiff) +
         (RHO * respRateDiff)
-    );
+    ) + (FEEDBACK_WEIGHT * feedback);
 
     console.log('Dose calculation result:', dose);
     return dose;

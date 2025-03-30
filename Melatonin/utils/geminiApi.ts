@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 
 // Gemini API configuration
-const GEMINI_API_KEY = 'AIzaSyAXKkX3xoQebgLMRrbz3E03ZwxSszym65Y';
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // Global feedback variable
@@ -16,7 +16,7 @@ export const analyzeSleepDescription = async (description: string): Promise<numb
       console.error("Invalid Gemini API key");
       Alert.alert(
         "Configuration Error",
-        "Gemini API key is not properly configured."
+        "Gemini API key is not properly configured. Please check your .env file."
       );
       return 0;
     }

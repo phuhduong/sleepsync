@@ -1,4 +1,4 @@
-interface BiometricDataPoint {
+export interface BiometricDataPoint {
   value: number;
   timestamp: string;
   quality: string;

@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Link } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
 import { sendDoseToESP8266 } from '../utils/esp8266';
 import { updateLatestDosage, getLatestDosage } from '../utils/globalState';
+import { analyzeSleepDescription } from '../utils/geminiApi';
+import { getBiometricData } from '../utils/fitbitApi';
 import DosePlot from '../components/DosePlot';
-import biometricData from '../data/sample_biometrics.json';
 
 export default function Sleep() {
   const [sleepMinutes, setSleepMinutes] = useState('');
@@ -15,6 +16,7 @@ export default function Sleep() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [totalTime, setTotalTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -35,40 +37,54 @@ export default function Sleep() {
     const minutes = parseInt(sleepMinutes);
     if (isNaN(minutes) || minutes <= 0) return;
 
-    // Set the timer and total time
-    const totalSeconds = minutes * 60;
-    setTimeRemaining(totalSeconds);
-    setTotalTime(totalSeconds);
-    setElapsedTime(0);
-    setIsTimerRunning(true);
-
-    // Calculate target time (current time + minutes)
-    const targetTime = new Date();
-    targetTime.setMinutes(targetTime.getMinutes() + minutes);
-
-    // Process the data with R and T values
-    const data = processBiometricData(
-      biometricData.historical_data.hrv,
-      biometricData.historical_data.rhr,
-      biometricData.historical_data.respiratory_rate,
-      biometricData.recommended_base_dose,
-      targetTime.toISOString(),
-      totalSeconds, // T: total time in seconds
-      totalSeconds  // R: remaining time in seconds (initially equal to T)
-    );
-
-    setProcessedData(data);
-
-    // Get the latest calculated dose and update global state
-    const latestDose = data[data.length - 1].calculatedDose;
-    updateLatestDosage(latestDose);
-
+    setIsLoading(true);
     try {
-      // Send the dose to ESP8266
-      await sendDoseToESP8266(latestDose);
-      console.log('Dose sent successfully to ESP8266');
+      // Set the timer and total time
+      const totalSeconds = minutes * 60;
+      setTimeRemaining(totalSeconds);
+      setTotalTime(totalSeconds);
+      setElapsedTime(0);
+      setIsTimerRunning(true);
+
+      // Calculate target time (current time + minutes)
+      const targetTime = new Date();
+      targetTime.setMinutes(targetTime.getMinutes() + minutes);
+
+      // Fetch biometric data (will automatically fall back to JSON if Fitbit fails)
+      const biometricData = await getBiometricData();
+
+      // Process the data with R and T values
+      const data = processBiometricData(
+        biometricData.hrv,
+        biometricData.rhr,
+        biometricData.respiratoryRate,
+        1.0, // base dose - you might want to make this configurable
+        targetTime.toISOString(),
+        totalSeconds,
+        totalSeconds
+      );
+
+      setProcessedData(data);
+
+      // Get the latest calculated dose and update global state
+      const latestDose = data[data.length - 1].calculatedDose;
+      updateLatestDosage(latestDose);
+
+      try {
+        // Send the dose to ESP8266
+        await sendDoseToESP8266(latestDose);
+        console.log('Dose sent successfully to ESP8266');
+      } catch (error) {
+        console.error('Failed to send dose to ESP8266:', error);
+      }
     } catch (error) {
-      console.error('Failed to send dose to ESP8266:', error);
+      console.error('Error processing biometric data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to process biometric data. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,6 +97,27 @@ export default function Sleep() {
     setTotalTime(null);
     setElapsedTime(0);
     setIsTimerRunning(false);
+  };
+
+  const handleAnalyze = async () => {
+    if (!sleepDescription.trim()) {
+      Alert.alert('Error', 'Please enter a sleep description first.');
+      return;
+    }
+
+    try {
+      const feedback = await analyzeSleepDescription(sleepDescription);
+      Alert.alert(
+        'Analysis Complete',
+        `Sleep quality score: ${feedback.toFixed(2)}\nThis will be factored into your next dose calculation.`
+      );
+    } catch (error) {
+      console.error('Error analyzing sleep description:', error);
+      Alert.alert(
+        'Analysis Error',
+        'Failed to analyze sleep description. Please try again.'
+      );
+    }
   };
 
   const formatTime = (seconds: number): string => {
@@ -111,7 +148,7 @@ export default function Sleep() {
             onChangeText={setSleepMinutes}
             keyboardType="numeric"
             placeholder="Enter minutes"
-            editable={!isTimerRunning}
+            editable={!isTimerRunning && !isLoading}
           />
         </View>
 
@@ -124,8 +161,15 @@ export default function Sleep() {
             placeholder="How are you feeling?"
             multiline
             numberOfLines={3}
-            editable={!isTimerRunning}
+            editable={!isTimerRunning && !isLoading}
           />
+          <TouchableOpacity 
+            style={[styles.analyzeButton, (isTimerRunning || isLoading) && styles.analyzeButtonDisabled]} 
+            onPress={handleAnalyze}
+            disabled={isTimerRunning || isLoading}
+          >
+            <Text style={styles.analyzeButtonText}>Analyze</Text>
+          </TouchableOpacity>
         </View>
 
         {isTimerRunning && (
@@ -137,12 +181,12 @@ export default function Sleep() {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={[styles.submitButton, isTimerRunning && styles.submitButtonDisabled]} 
+            style={[styles.submitButton, (isTimerRunning || isLoading) && styles.submitButtonDisabled]} 
             onPress={handleSubmit}
-            disabled={isTimerRunning}
+            disabled={isTimerRunning || isLoading}
           >
             <Text style={styles.submitButtonText}>
-              {isTimerRunning ? 'Timer Running...' : 'Calculate Optimal Dose'}
+              {isLoading ? 'Loading...' : isTimerRunning ? 'Timer Running...' : 'Calculate Optimal Dose'}
             </Text>
           </TouchableOpacity>
 
@@ -273,5 +317,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 150,
     textAlign: 'center',
+  },
+  analyzeButton: {
+    backgroundColor: '#4A90E2',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  analyzeButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  analyzeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

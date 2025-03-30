@@ -1,55 +1,100 @@
 import { Alert } from 'react-native';
+import { BiometricDataPoint } from './dataProcessor';
 
 // Fitbit API configuration
 const FITBIT_API_KEY = process.env.EXPO_PUBLIC_FITBIT_API_KEY;
 const FITBIT_API_SECRET = process.env.EXPO_PUBLIC_FITBIT_API_SECRET;
 const FITBIT_REDIRECT_URI = 'your-app-scheme://oauth/callback'; // Replace with your app's redirect URI
 
-interface BiometricDataPoint {
-  timestamp: string;
-  value: number;
-  quality: string;
+interface FitbitCredentials {
+  clientId: string;
+  clientSecret: string;
+  accessToken?: string;
 }
 
 interface FitbitData {
   hrv: BiometricDataPoint[];
   rhr: BiometricDataPoint[];
-  respiratory_rate: BiometricDataPoint[];
+  respiratoryRate: BiometricDataPoint[];
 }
 
-export const getFitbitData = async (): Promise<FitbitData | null> => {
+const FITBIT_API_BASE = 'https://api.fitbit.com/1/user/-';
+
+export async function fetchFitbitData(credentials: FitbitCredentials): Promise<FitbitData | null> {
   try {
-    // Check if API credentials are configured
-    if (!FITBIT_API_KEY || !FITBIT_API_SECRET) {
-      console.log("Fitbit API credentials not configured, using fallback data");
+    if (!credentials.accessToken) {
+      console.log('No Fitbit access token available, falling back to JSON data');
       return null;
     }
 
-    // TODO: Implement OAuth flow and token management
-    // This is a placeholder for the actual implementation
-    const accessToken = await getFitbitAccessToken();
-    if (!accessToken) {
-      console.log("Failed to get Fitbit access token, using fallback data");
-      return null;
-    }
-
-    // Fetch data from Fitbit API
-    const [hrvData, rhrData, respData] = await Promise.all([
-      fetchFitbitHRV(accessToken),
-      fetchFitbitRHR(accessToken),
-      fetchFitbitRespiratoryRate(accessToken)
-    ]);
-
-    return {
-      hrv: hrvData,
-      rhr: rhrData,
-      respiratory_rate: respData
+    const headers = {
+      'Authorization': `Bearer ${credentials.accessToken}`,
+      'Content-Type': 'application/json'
     };
+
+    // Fetch HRV data
+    const hrvResponse = await fetch(`${FITBIT_API_BASE}/hrv/date/today/1d.json`, { headers });
+    const hrvData = await hrvResponse.json();
+
+    // Fetch RHR data
+    const rhrResponse = await fetch(`${FITBIT_API_BASE}/activities/heart/date/today/1d.json`, { headers });
+    const rhrData = await rhrResponse.json();
+
+    // Fetch respiratory rate data
+    const respResponse = await fetch(`${FITBIT_API_BASE}/respiratory-rate/date/today/1d.json`, { headers });
+    const respData = await respResponse.json();
+
+    // Transform Fitbit data to match our BiometricDataPoint interface
+    const transformedData: FitbitData = {
+      hrv: hrvData.hrv.map((point: any) => ({
+        value: point.value,
+        timestamp: point.dateTime,
+        quality: point.quality
+      })),
+      rhr: rhrData.activitiesHeart.map((point: any) => ({
+        value: point.value.heartRateZones[0].min,
+        timestamp: point.dateTime,
+        quality: 'good'
+      })),
+      respiratoryRate: respData.respiratoryRate.map((point: any) => ({
+        value: point.value,
+        timestamp: point.dateTime,
+        quality: point.quality
+      }))
+    };
+
+    return transformedData;
   } catch (error) {
-    console.error("Error fetching Fitbit data:", error);
+    console.error('Error fetching Fitbit data:', error);
     return null;
   }
-};
+}
+
+export async function getBiometricData(): Promise<FitbitData> {
+  // Try to get Fitbit credentials from environment
+  const credentials: FitbitCredentials = {
+    clientId: process.env.FITBIT_CLIENT_ID || '',
+    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
+    accessToken: process.env.FITBIT_ACCESS_TOKEN
+  };
+
+  // Try to fetch data from Fitbit
+  const fitbitData = await fetchFitbitData(credentials);
+  
+  if (fitbitData) {
+    console.log('Successfully fetched data from Fitbit');
+    return fitbitData;
+  }
+
+  // Fallback to JSON data
+  console.log('Falling back to JSON data');
+  const jsonData = require('../data/sample_biometrics.json');
+  return {
+    hrv: jsonData.historical_data.hrv,
+    rhr: jsonData.historical_data.rhr,
+    respiratoryRate: jsonData.historical_data.respiratory_rate
+  };
+}
 
 const getFitbitAccessToken = async (): Promise<string | null> => {
   // TODO: Implement OAuth flow
