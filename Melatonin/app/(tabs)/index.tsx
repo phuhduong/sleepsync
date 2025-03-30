@@ -1,9 +1,10 @@
-import { Image, StyleSheet, Platform, TouchableOpacity, ScrollView, View } from 'react-native';
+import { Image, StyleSheet, Platform, TouchableOpacity, ScrollView, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link } from 'expo-router';
 
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -34,51 +35,57 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/images/partial-react-logo.png')}
+            source={require('../../assets/images/logo.png')}
             style={styles.logo}
+            resizeMode="contain"
           />
           <ThemedView style={styles.titleContainer}>
             <ThemedText type="title" style={styles.title}>SleepSync</ThemedText>
-            <ThemedText style={styles.subtitle}>Your AI-Powered Sleep Assistant</ThemedText>
+            <ThemedText style={styles.subtitle}>Your Personalized Sleep Assistant</ThemedText>
           </ThemedView>
         </View>
 
         <ThemedView style={styles.featuresContainer}>
           <View style={styles.featuresGrid}>
-            <TouchableOpacity 
-              style={styles.featureCard}
-              onPress={() => router.push('/sleep')}
-            >
-              <MaterialCommunityIcons name="sleep" size={32} color="#fff" />
-              <ThemedText style={styles.featureTitle}>Smart Sleep Timer</ThemedText>
-              <ThemedText style={styles.featureDescription}>
-                Get personalized melatonin dosing based on your biometrics
-              </ThemedText>
-            </TouchableOpacity>
+            <Link href="/sleep" asChild>
+              <TouchableOpacity 
+                style={styles.featureCard}
+              >
+                <MaterialCommunityIcons name="sleep" size={32} color="#fff" />
+                <ThemedText style={styles.featureTitle}>Sleep Timer</ThemedText>
+                <ThemedText style={styles.featureDescription}>Set your sleep schedule and get personalized melatonin doses</ThemedText>
+              </TouchableOpacity>
+            </Link>
 
-            <TouchableOpacity 
-              style={styles.featureCard}
-              onPress={() => router.push('/data')}
-            >
-              <MaterialCommunityIcons name="chart-line" size={32} color="#fff" />
-              <ThemedText style={styles.featureTitle}>Sleep Analytics</ThemedText>
-              <ThemedText style={styles.featureDescription}>
-                Track your sleep patterns and quality over time
-              </ThemedText>
-            </TouchableOpacity>
+            <Link href="/data" asChild>
+              <TouchableOpacity 
+                style={styles.featureCard}
+              >
+                <MaterialCommunityIcons name="chart-line" size={32} color="#fff" />
+                <ThemedText style={styles.featureTitle}>Biometric Data</ThemedText>
+                <ThemedText style={styles.featureDescription}>Track your sleep metrics and see your progress</ThemedText>
+              </TouchableOpacity>
+            </Link>
 
-            <TouchableOpacity 
-              style={styles.featureCard}
-              onPress={() => router.push('/profile')}
-            >
-              <MaterialCommunityIcons name="account-cog" size={32} color="#fff" />
-              <ThemedText style={styles.featureTitle}>Personal Settings</ThemedText>
-              <ThemedText style={styles.featureDescription}>
-                Customize your sleep preferences and device settings
-              </ThemedText>
-            </TouchableOpacity>
+            <Link href="/explore" asChild>
+              <TouchableOpacity 
+                style={styles.featureCard}
+              >
+                <MaterialCommunityIcons name="book-open-variant" size={32} color="#fff" />
+                <ThemedText style={styles.featureTitle}>Sleep Guide</ThemedText>
+                <ThemedText style={styles.featureDescription}>Learn about sleep science and get personalized tips</ThemedText>
+              </TouchableOpacity>
+            </Link>
           </View>
         </ThemedView>
+
+        <TouchableOpacity style={styles.darkModeButton} onPress={() => handleDarkModeChange(!isDarkMode)}>
+          <MaterialCommunityIcons 
+            name={isDarkMode ? "white-balance-sunny" : "moon-waning-crescent"} 
+            size={24} 
+            color="#fff" 
+          />
+        </TouchableOpacity>
       </ScrollView>
     </LinearGradient>
   );
@@ -94,8 +101,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 40,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   logo: {
     width: 120,
@@ -175,5 +182,13 @@ const styles = StyleSheet.create({
       ios: 'System',
       android: 'sans-serif',
     }),
+  },
+  darkModeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
 });

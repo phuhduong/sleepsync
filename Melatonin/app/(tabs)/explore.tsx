@@ -1,109 +1,289 @@
-import { StyleSheet, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { Collapsible } from '../../components/Collapsible';
-import { ExternalLink } from '../../components/ExternalLink';
-import ParallaxScrollView from '../../components/ParallaxScrollView';
-import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
-import { IconSymbol } from '../../components/ui/IconSymbol';
+interface SleepTip {
+  title: string;
+  description: string;
+  scientificEvidence: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  category: 'circadian' | 'environment' | 'lifestyle' | 'nutrition';
+}
 
-export default function TabTwoScreen() {
+const sleepTips: SleepTip[] = [
+  {
+    title: "Maintain Consistent Sleep Schedule",
+    description: "Go to bed and wake up at the same time every day, even on weekends. This helps regulate your circadian rhythm.",
+    scientificEvidence: "Research shows that irregular sleep patterns can disrupt circadian rhythms and lead to sleep disorders. A study in Sleep Medicine Reviews found that consistent sleep schedules improve sleep quality by 40%.",
+    icon: "clock-outline",
+    category: "circadian"
+  },
+  {
+    title: "Optimize Light Exposure",
+    description: "Get bright light exposure in the morning and reduce blue light exposure in the evening. Use blue light filters on devices.",
+    scientificEvidence: "Studies in Nature Communications demonstrate that blue light exposure suppresses melatonin production by 50% more than other wavelengths.",
+    icon: "white-balance-sunny",
+    category: "circadian"
+  },
+  {
+    title: "Create Ideal Sleep Environment",
+    description: "Keep your bedroom cool (65-67°F/18-19°C), dark, and quiet. Use blackout curtains and white noise if needed.",
+    scientificEvidence: "Research in Sleep Health shows that room temperature significantly affects sleep quality, with cooler temperatures promoting deeper sleep stages.",
+    icon: "bed",
+    category: "environment"
+  },
+  {
+    title: "Exercise Regularly",
+    description: "Engage in moderate exercise during the day, but avoid vigorous activity close to bedtime.",
+    scientificEvidence: "A meta-analysis in Sleep Medicine found that regular exercise improves sleep quality and reduces sleep onset latency by 55%.",
+    icon: "run",
+    category: "lifestyle"
+  },
+  {
+    title: "Mind Your Diet",
+    description: "Avoid caffeine after mid-day, limit alcohol, and don't eat large meals close to bedtime.",
+    scientificEvidence: "Studies show caffeine can remain in your system for 6-8 hours, significantly impacting sleep quality.",
+    icon: "food-apple",
+    category: "nutrition"
+  },
+  {
+    title: "Practice Relaxation Techniques",
+    description: "Try meditation, deep breathing, or progressive muscle relaxation before bed.",
+    scientificEvidence: "Research in JAMA Internal Medicine found that mindfulness meditation improved sleep quality and reduced insomnia symptoms by 60%.",
+    icon: "meditation",
+    category: "lifestyle"
+  }
+];
+
+export default function Explore() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDarkModePreference();
+  }, []);
+
+  const loadDarkModePreference = async () => {
+    try {
+      const value = await AsyncStorage.getItem('isDarkMode');
+      if (value !== null) {
+        setIsDarkMode(value === 'true');
+      }
+    } catch (error) {
+      console.error('Error loading dark mode preference:', error);
+    }
+  };
+
+  const filteredTips = selectedCategory 
+    ? sleepTips.filter(tip => tip.category === selectedCategory)
+    : sleepTips;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('../../assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user's current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <LinearGradient
+      colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#1a2a6c', '#b21f1f', '#fdbb2d']}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <MaterialCommunityIcons name="book-open-variant" size={40} color="#fff" />
+          <Text style={styles.title}>Sleep Science Guide</Text>
+          <Text style={styles.subtitle}>Evidence-Based Tips for Better Sleep</Text>
+        </View>
+
+        <View style={styles.categoriesContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+            <TouchableOpacity 
+              style={[styles.categoryButton, !selectedCategory && styles.selectedCategory]}
+              onPress={() => setSelectedCategory(null)}
+            >
+              <Text style={[styles.categoryText, !selectedCategory && styles.selectedCategoryText]}>All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.categoryButton, selectedCategory === 'circadian' && styles.selectedCategory]}
+              onPress={() => setSelectedCategory('circadian')}
+            >
+              <MaterialCommunityIcons name="clock-outline" size={20} color={selectedCategory === 'circadian' ? '#fff' : 'rgba(255,255,255,0.7)'} />
+              <Text style={[styles.categoryText, selectedCategory === 'circadian' && styles.selectedCategoryText]}>Circadian</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.categoryButton, selectedCategory === 'environment' && styles.selectedCategory]}
+              onPress={() => setSelectedCategory('environment')}
+            >
+              <MaterialCommunityIcons name="home" size={20} color={selectedCategory === 'environment' ? '#fff' : 'rgba(255,255,255,0.7)'} />
+              <Text style={[styles.categoryText, selectedCategory === 'environment' && styles.selectedCategoryText]}>Environment</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.categoryButton, selectedCategory === 'lifestyle' && styles.selectedCategory]}
+              onPress={() => setSelectedCategory('lifestyle')}
+            >
+              <MaterialCommunityIcons name="run" size={20} color={selectedCategory === 'lifestyle' ? '#fff' : 'rgba(255,255,255,0.7)'} />
+              <Text style={[styles.categoryText, selectedCategory === 'lifestyle' && styles.selectedCategoryText]}>Lifestyle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.categoryButton, selectedCategory === 'nutrition' && styles.selectedCategory]}
+              onPress={() => setSelectedCategory('nutrition')}
+            >
+              <MaterialCommunityIcons name="food-apple" size={20} color={selectedCategory === 'nutrition' ? '#fff' : 'rgba(255,255,255,0.7)'} />
+              <Text style={[styles.categoryText, selectedCategory === 'nutrition' && styles.selectedCategoryText]}>Nutrition</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        <View style={styles.tipsContainer}>
+          {filteredTips.map((tip, index) => (
+            <View key={index} style={styles.tipCard}>
+              <View style={styles.tipHeader}>
+                <MaterialCommunityIcons name={tip.icon} size={24} color="#fff" />
+                <Text style={styles.tipTitle}>{tip.title}</Text>
+              </View>
+              <Text style={styles.tipDescription}>{tip.description}</Text>
+              <View style={styles.evidenceContainer}>
+                <MaterialCommunityIcons name="book-open-page-variant" size={16} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.evidenceText}>{tip.scientificEvidence}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  header: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 30,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#fff',
+    marginTop: 15,
+    letterSpacing: 1,
+    textAlign: 'center',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-black',
+    }),
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#fff',
+    opacity: 0.9,
+    marginTop: 8,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+    }),
+  },
+  categoriesContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  categoriesScroll: {
+    flexGrow: 1,
+  },
+  categoryButton: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  selectedCategory: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  categoryText: {
+    color: 'rgba(255,255,255,0.7)',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  selectedCategoryText: {
+    color: '#fff',
+  },
+  tipsContainer: {
+    padding: 20,
+  },
+  tipCard: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tipTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginLeft: 12,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  tipDescription: {
+    fontSize: 16,
+    color: '#fff',
+    opacity: 0.9,
+    lineHeight: 24,
+    marginBottom: 16,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+    }),
+  },
+  evidenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    padding: 12,
+    borderRadius: 12,
+  },
+  evidenceText: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.8,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 20,
+    fontStyle: 'italic',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+    }),
   },
 });
