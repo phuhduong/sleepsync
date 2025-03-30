@@ -147,10 +147,6 @@ Melatonin/
    - Gemini analyzes feedback through NLP
    - Algorithm adjusts for future doses
 
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
