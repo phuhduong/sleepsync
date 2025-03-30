@@ -115,7 +115,7 @@ export default function Profile() {
               </View>
               <View style={styles.preferenceContent}>
                 <Text style={styles.preferenceLabel}>ESP8266 IP Address</Text>
-                <Text style={styles.preferenceValue}>192.168.4.3</Text>
+                <Text style={styles.preferenceValue}>192.168.4.1</Text>
               </View>
             </View>
             <View style={styles.preferenceItem}>

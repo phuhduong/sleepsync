@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { processBiometricData } from '../utils/dataProcessor';
 import biometricData from '../data/sample_biometrics.json';
@@ -6,8 +6,27 @@ import DosePlot from '../components/DosePlot';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Data() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    loadDarkModePreference();
+  }, []);
+
+  const loadDarkModePreference = async () => {
+    try {
+      const value = await AsyncStorage.getItem('isDarkMode');
+      if (value !== null) {
+        setIsDarkMode(value === 'true');
+      }
+    } catch (error) {
+      console.error('Error loading dark mode preference:', error);
+    }
+  };
+
   // Process the data with current time as target
   const processedData = processBiometricData(
     biometricData.historical_data.hrv,
@@ -24,7 +43,7 @@ export default function Data() {
 
   return (
     <LinearGradient
-      colors={['#1a2a6c', '#b21f1f', '#fdbb2d']}
+      colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#1a2a6c', '#b21f1f', '#fdbb2d']}
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
