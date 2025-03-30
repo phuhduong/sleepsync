@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import { Link } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
@@ -17,6 +17,7 @@ export default function Sleep() {
   const [totalTime, setTotalTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [useFitbit, setUseFitbit] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -50,14 +51,15 @@ export default function Sleep() {
       const targetTime = new Date();
       targetTime.setMinutes(targetTime.getMinutes() + minutes);
 
-      // Fetch biometric data (will automatically fall back to JSON if Fitbit fails)
-      const biometricData = await getBiometricData();
+      // Get biometric data (will automatically fall back to JSON if Fitbit fails)
+      const biometricData = useFitbit ? await getBiometricData() : null;
+      const jsonData = require('../data/sample_biometrics.json').historical_data;
 
       // Process the data with R and T values
       const data = processBiometricData(
-        biometricData.hrv,
-        biometricData.rhr,
-        biometricData.respiratoryRate,
+        biometricData?.hrv || jsonData.hrv,
+        biometricData?.rhr || jsonData.rhr,
+        biometricData?.respiratoryRate || jsonData.respiratory_rate,
         1.0, // base dose - you might want to make this configurable
         targetTime.toISOString(),
         totalSeconds,
@@ -170,6 +172,18 @@ export default function Sleep() {
           >
             <Text style={styles.analyzeButtonText}>Analyze</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.fitbitContainer}>
+          <Text style={styles.label}>Use Fitbit data:</Text>
+          <Switch
+            value={useFitbit}
+            onValueChange={setUseFitbit}
+            disabled={isTimerRunning || isLoading}
+          />
+          <Text style={styles.fitbitNote}>
+            {useFitbit ? 'Using real-time Fitbit data' : 'Using sample data'}
+          </Text>
         </View>
 
         {isTimerRunning && (
@@ -332,5 +346,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  fitbitContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+  },
+  fitbitNote: {
+    marginLeft: 10,
+    color: '#666666',
+    fontSize: 14,
   },
 }); 

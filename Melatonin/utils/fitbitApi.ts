@@ -1,15 +1,21 @@
 import { Alert } from 'react-native';
 import { BiometricDataPoint } from './dataProcessor';
+import * as WebBrowser from 'expo-web-browser';
 
 // Fitbit API configuration
-const FITBIT_API_KEY = process.env.EXPO_PUBLIC_FITBIT_API_KEY;
-const FITBIT_API_SECRET = process.env.EXPO_PUBLIC_FITBIT_API_SECRET;
-const FITBIT_REDIRECT_URI = 'your-app-scheme://oauth/callback'; // Replace with your app's redirect URI
+const FITBIT_CLIENT_ID = process.env.EXPO_PUBLIC_FITBIT_CLIENT_ID;
+const FITBIT_CLIENT_SECRET = process.env.EXPO_PUBLIC_FITBIT_CLIENT_SECRET;
+const FITBIT_REDIRECT_URI = 'melatonin://oauth/callback';
+const FITBIT_API_BASE = 'https://api.fitbit.com/1/user/-';
+const FITBIT_AUTH_BASE = 'https://www.fitbit.com/oauth2/authorize';
+const FITBIT_TOKEN_BASE = 'https://api.fitbit.com/oauth2/token';
 
 interface FitbitCredentials {
   clientId: string;
   clientSecret: string;
-  accessToken?: string;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: number;
 }
 
 interface FitbitData {
@@ -18,30 +24,168 @@ interface FitbitData {
   respiratoryRate: BiometricDataPoint[];
 }
 
-const FITBIT_API_BASE = 'https://api.fitbit.com/1/user/-';
+interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  user_id: string;
+}
+
+// Store tokens securely (in a real app, use secure storage)
+let tokenStorage: {
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt?: number;
+} = {
+  accessToken: null,
+  refreshToken: null
+};
+
+export async function getFitbitAccessToken(): Promise<string | null> {
+  try {
+    // Check if we have a valid token
+    if (tokenStorage.accessToken && tokenStorage.expiresAt && Date.now() < tokenStorage.expiresAt) {
+      return tokenStorage.accessToken;
+    }
+
+    // If we have a refresh token, try to refresh
+    if (tokenStorage.refreshToken) {
+      const newToken = await refreshAccessToken(tokenStorage.refreshToken);
+      if (newToken) return newToken;
+    }
+
+    // If no valid token or refresh failed, initiate OAuth flow
+    return await initiateOAuthFlow();
+  } catch (error) {
+    console.error('Error getting Fitbit access token:', error);
+    return null;
+  }
+}
+
+async function initiateOAuthFlow(): Promise<string | null> {
+  try {
+    // Generate random state for security
+    const state = Math.random().toString(36).substring(7);
+    
+    // Construct authorization URL
+    const authUrl = `${FITBIT_AUTH_BASE}?response_type=code&client_id=${FITBIT_CLIENT_ID}&redirect_uri=${encodeURIComponent(FITBIT_REDIRECT_URI)}&scope=heartrate%20respiratory_rate%20hrv&state=${state}`;
+
+    // Open browser for authentication
+    const result = await WebBrowser.openAuthSessionAsync(
+      authUrl,
+      FITBIT_REDIRECT_URI
+    );
+
+    if (result.type === 'success') {
+      const url = new URL(result.url);
+      const code = url.searchParams.get('code');
+      const returnedState = url.searchParams.get('state');
+
+      if (code && returnedState === state) {
+        // Exchange code for tokens
+        const tokenResponse = await exchangeCodeForTokens(code);
+        if (tokenResponse) {
+          tokenStorage = {
+            accessToken: tokenResponse.access_token,
+            refreshToken: tokenResponse.refresh_token,
+            expiresAt: Date.now() + (tokenResponse.expires_in * 1000)
+          };
+          return tokenStorage.accessToken || null;
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error in OAuth flow:', error);
+    return null;
+  }
+}
+
+async function exchangeCodeForTokens(code: string): Promise<TokenResponse | null> {
+  try {
+    const response = await fetch(FITBIT_TOKEN_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(`${FITBIT_CLIENT_ID}:${FITBIT_CLIENT_SECRET}`).toString('base64')}`
+      },
+      body: new URLSearchParams({
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: FITBIT_REDIRECT_URI
+      })
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+    return null;
+  } catch (error) {
+    console.error('Error exchanging code for tokens:', error);
+    return null;
+  }
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(FITBIT_TOKEN_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(`${FITBIT_CLIENT_ID}:${FITBIT_CLIENT_SECRET}`).toString('base64')}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      })
+    });
+
+    if (response.ok) {
+      const tokenResponse = await response.json();
+      tokenStorage = {
+        accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt: Date.now() + (tokenResponse.expires_in * 1000)
+      };
+      return tokenStorage.accessToken;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error refreshing access token:', error);
+    return null;
+  }
+}
 
 export async function fetchFitbitData(credentials: FitbitCredentials): Promise<FitbitData | null> {
   try {
-    if (!credentials.accessToken) {
+    const accessToken = await getFitbitAccessToken();
+    if (!accessToken) {
       console.log('No Fitbit access token available, falling back to JSON data');
       return null;
     }
 
     const headers = {
-      'Authorization': `Bearer ${credentials.accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     };
 
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+
     // Fetch HRV data
-    const hrvResponse = await fetch(`${FITBIT_API_BASE}/hrv/date/today/1d.json`, { headers });
+    const hrvResponse = await fetch(`${FITBIT_API_BASE}/hrv/date/${today}/1d.json`, { headers });
+    if (!hrvResponse.ok) throw new Error('Failed to fetch HRV data');
     const hrvData = await hrvResponse.json();
 
     // Fetch RHR data
-    const rhrResponse = await fetch(`${FITBIT_API_BASE}/activities/heart/date/today/1d.json`, { headers });
+    const rhrResponse = await fetch(`${FITBIT_API_BASE}/activities/heart/date/${today}/1d.json`, { headers });
+    if (!rhrResponse.ok) throw new Error('Failed to fetch RHR data');
     const rhrData = await rhrResponse.json();
 
     // Fetch respiratory rate data
-    const respResponse = await fetch(`${FITBIT_API_BASE}/respiratory-rate/date/today/1d.json`, { headers });
+    const respResponse = await fetch(`${FITBIT_API_BASE}/respiratory-rate/date/${today}/1d.json`, { headers });
+    if (!respResponse.ok) throw new Error('Failed to fetch respiratory rate data');
     const respData = await respResponse.json();
 
     // Transform Fitbit data to match our BiometricDataPoint interface
@@ -49,7 +193,7 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
       hrv: hrvData.hrv.map((point: any) => ({
         value: point.value,
         timestamp: point.dateTime,
-        quality: point.quality
+        quality: point.quality || 'good'
       })),
       rhr: rhrData.activitiesHeart.map((point: any) => ({
         value: point.value.heartRateZones[0].min,
@@ -59,7 +203,7 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
       respiratoryRate: respData.respiratoryRate.map((point: any) => ({
         value: point.value,
         timestamp: point.dateTime,
-        quality: point.quality
+        quality: point.quality || 'good'
       }))
     };
 
@@ -73,9 +217,9 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
 export async function getBiometricData(): Promise<FitbitData> {
   // Try to get Fitbit credentials from environment
   const credentials: FitbitCredentials = {
-    clientId: process.env.FITBIT_CLIENT_ID || '',
-    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
-    accessToken: process.env.FITBIT_ACCESS_TOKEN
+    clientId: FITBIT_CLIENT_ID || '',
+    clientSecret: FITBIT_CLIENT_SECRET || '',
+    accessToken: await getFitbitAccessToken() || undefined
   };
 
   // Try to fetch data from Fitbit
@@ -95,15 +239,6 @@ export async function getBiometricData(): Promise<FitbitData> {
     respiratoryRate: jsonData.historical_data.respiratory_rate
   };
 }
-
-const getFitbitAccessToken = async (): Promise<string | null> => {
-  // TODO: Implement OAuth flow
-  // This should:
-  // 1. Check for existing valid token
-  // 2. If no token or expired, initiate OAuth flow
-  // 3. Handle token refresh
-  return null;
-};
 
 const fetchFitbitHRV = async (accessToken: string): Promise<BiometricDataPoint[]> => {
   // TODO: Implement actual Fitbit API call
