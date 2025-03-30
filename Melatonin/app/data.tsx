@@ -1,8 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Link } from 'expo-router';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { processBiometricData } from '../utils/dataProcessor';
 import biometricData from '../data/sample_biometrics.json';
 import DosePlot from '../components/DosePlot';
+import { ThemedText } from '../components/ThemedText';
+import { ThemedView } from '../components/ThemedView';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function Data() {
   // Process the data with current time as target
@@ -20,129 +23,95 @@ export default function Data() {
   const latestData = processedData[processedData.length - 1];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Your Biometric Data</Text>
-        <Text style={styles.subtitle}>Latest Readings</Text>
-      </View>
-
-      <View style={styles.content}>
-        {processedData.length > 0 && (
-          <DosePlot data={processedData} />
-        )}
-
-        <View style={styles.dataCard}>
-          <Text style={styles.cardTitle}>Heart Rate Variability (HRV)</Text>
-          <Text style={styles.cardValue}>
-            {latestData.currentHRV.toFixed(1)}
-          </Text>
-          <Text style={styles.cardUnit}>ms</Text>
+    <LinearGradient
+      colors={['#1a2a6c', '#b21f1f', '#fdbb2d']}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <MaterialCommunityIcons name="chart-line" size={40} color="#fff" />
+          <ThemedText type="title">Your Biometric Data</ThemedText>
+          <ThemedText>Latest Readings</ThemedText>
         </View>
 
-        <View style={styles.dataCard}>
-          <Text style={styles.cardTitle}>Resting Heart Rate (RHR)</Text>
-          <Text style={styles.cardValue}>
-            {latestData.currentRHR.toFixed(1)}
-          </Text>
-          <Text style={styles.cardUnit}>bpm</Text>
-        </View>
+        <View style={styles.content}>
+          {processedData.length > 0 && (
+            <DosePlot data={processedData} />
+          )}
 
-        <View style={styles.dataCard}>
-          <Text style={styles.cardTitle}>Respiratory Rate</Text>
-          <Text style={styles.cardValue}>
-            {latestData.currentRespRate.toFixed(1)}
-          </Text>
-          <Text style={styles.cardUnit}>breaths/min</Text>
-        </View>
+          <ThemedView type="card">
+            <View style={styles.dataRow}>
+              <MaterialCommunityIcons name="heart-pulse" size={24} color="#fff" style={styles.icon} />
+              <View style={styles.dataContent}>
+                <ThemedText type="defaultSemiBold">Heart Rate Variability (HRV)</ThemedText>
+                <ThemedText>{latestData.currentHRV.toFixed(1)} ms</ThemedText>
+              </View>
+            </View>
+          </ThemedView>
 
-        <View style={styles.timestamp}>
-          <Text style={styles.timestampText}>
-            Last updated: {new Date(latestData.timestamp).toLocaleString()}
-          </Text>
-        </View>
+          <ThemedView type="card">
+            <View style={styles.dataRow}>
+              <MaterialCommunityIcons name="heart" size={24} color="#fff" style={styles.icon} />
+              <View style={styles.dataContent}>
+                <ThemedText type="defaultSemiBold">Resting Heart Rate (RHR)</ThemedText>
+                <ThemedText>{latestData.currentRHR.toFixed(1)} bpm</ThemedText>
+              </View>
+            </View>
+          </ThemedView>
 
-        <View style={styles.navigation}>
-          <Link href="/" style={styles.link}>
-            Back to Home
-          </Link>
+          <ThemedView type="card">
+            <View style={styles.dataRow}>
+              <MaterialCommunityIcons name="lungs" size={24} color="#fff" style={styles.icon} />
+              <View style={styles.dataContent}>
+                <ThemedText type="defaultSemiBold">Respiratory Rate</ThemedText>
+                <ThemedText>{latestData.currentRespRate.toFixed(1)} breaths/min</ThemedText>
+              </View>
+            </View>
+          </ThemedView>
+
+          <ThemedView style={styles.timestamp}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color="#fff" style={styles.timestampIcon} />
+            <ThemedText>
+              Last updated: {new Date(latestData.timestamp).toLocaleString()}
+            </ThemedText>
+          </ThemedView>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     padding: 20,
-    backgroundColor: '#4A90E2',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    opacity: 0.9,
   },
   content: {
     padding: 20,
   },
-  dataCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cardTitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 8,
+  icon: {
+    marginRight: 15,
   },
-  cardValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  cardUnit: {
-    fontSize: 14,
-    color: '#999999',
+  dataContent: {
+    flex: 1,
   },
   timestamp: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  timestampText: {
-    color: '#666666',
-    fontSize: 14,
-  },
-  navigation: {
+    justifyContent: 'center',
     marginTop: 20,
-    alignItems: 'center',
   },
-  link: {
-    backgroundColor: '#4A90E2',
-    padding: 15,
-    borderRadius: 8,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 150,
-    textAlign: 'center',
+  timestampIcon: {
+    marginRight: 8,
   },
 }); 

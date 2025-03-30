@@ -1,24 +1,55 @@
-import { Link } from 'expo-router';
-import { openBrowserAsync } from 'expo-web-browser';
-import { type ComponentProps } from 'react';
-import { Platform } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, Linking, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: string };
+interface ExternalLinkProps {
+  href: string;
+  children: React.ReactNode;
+}
 
-export function ExternalLink({ href, ...rest }: Props) {
+export function ExternalLink({ href, children }: ExternalLinkProps) {
+  const handlePress = async () => {
+    try {
+      await Linking.openURL(href);
+    } catch (error) {
+      console.error('Error opening URL:', error);
+    }
+  };
+
   return (
-    <Link
-      target="_blank"
-      {...rest}
-      href={href}
-      onPress={async (event) => {
-        if (Platform.OS !== 'web') {
-          // Prevent the default behavior of linking to the default browser on native.
-          event.preventDefault();
-          // Open the link in an in-app browser.
-          await openBrowserAsync(href);
-        }
-      }}
-    />
+    <Pressable
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.pressed,
+      ]}
+      onPress={handlePress}
+    >
+      <View style={styles.content}>
+        {children}
+        <MaterialCommunityIcons
+          name="open-in-new"
+          size={16}
+          color="#fff"
+          style={styles.icon}
+        />
+      </View>
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  pressed: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  icon: {
+    marginLeft: 4,
+  },
+});

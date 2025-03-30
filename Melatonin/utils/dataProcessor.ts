@@ -4,7 +4,7 @@ export interface BiometricDataPoint {
   quality: string;
 }
 
-interface ProcessedData {
+export interface ProcessedData {
   hour: number;  // 0-23
   timestamp: string;
   hrvDiff: number;

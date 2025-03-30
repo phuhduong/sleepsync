@@ -1,12 +1,17 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, Animated, Dimensions, Platform } from 'react-native';
 import { Link } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
 import { sendDoseToESP8266 } from '../utils/esp8266';
 import { updateLatestDosage, getLatestDosage } from '../utils/globalState';
 import { analyzeSleepDescription } from '../utils/geminiApi';
 import { getBiometricData } from '../utils/fitbitApi';
-import DosePlot from '../components/DosePlot';
+import DosePlot from '../components/DosePlot'; 
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const { width } = Dimensions.get('window');
 
 export default function Sleep() {
   const [sleepMinutes, setSleepMinutes] = useState('');
@@ -18,6 +23,27 @@ export default function Sleep() {
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [useFitbit, setUseFitbit] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Load dark mode preference
+    AsyncStorage.getItem('isDarkMode').then(value => {
+      if (value !== null) {
+        setIsDarkMode(value === 'true');
+      }
+    });
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -25,9 +51,38 @@ export default function Sleep() {
       interval = setInterval(() => {
         setTimeRemaining(prev => prev !== null ? prev - 1 : null);
         setElapsedTime(prev => prev + 1);
+        
+        // Pulse animation for the timer
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]).start();
       }, 1000);
     } else if (timeRemaining === 0) {
       setIsTimerRunning(false);
+      // Celebration animation
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1.2,
+          friction: 3,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 3,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timeRemaining]);
@@ -135,231 +190,335 @@ export default function Sleep() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Plan Your Sleep</Text>
-        <Text style={styles.subtitle}>Calculate optimal melatonin dose</Text>
-      </View>
+    <LinearGradient
+      colors={isDarkMode ? ['#1a1a2e', '#16213e', '#0f3460'] : ['#1a2a6c', '#b21f1f', '#fdbb2d']}
+      style={styles.container}
+    >
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.card}>
+            <Text style={styles.title}>Sleep Timer</Text>
+            
+            <View style={styles.descriptionContainer}>
+              <MaterialCommunityIcons name="text-box-outline" size={24} color="#fff" style={styles.inputIcon} />
+              <View style={styles.descriptionInputContainer}>
+                <TextInput
+                  style={[styles.input, styles.descriptionInput]}
+                  placeholder="Describe your sleep quality..."
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  value={sleepDescription}
+                  onChangeText={setSleepDescription}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={styles.analyzeButton}
+                  onPress={handleAnalyze}
+                >
+                  <MaterialCommunityIcons name="brain" size={20} color="#fff" />
+                  <Text style={styles.analyzeButtonText}>Analyze</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-      <View style={styles.content}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Minutes until sleep:</Text>
-          <TextInput
-            style={styles.input}
-            value={sleepMinutes}
-            onChangeText={setSleepMinutes}
-            keyboardType="numeric"
-            placeholder="Enter minutes"
-            editable={!isTimerRunning && !isLoading}
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <MaterialCommunityIcons name="timer-outline" size={24} color="#fff" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter sleep duration (minutes)"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                value={sleepMinutes}
+                onChangeText={setSleepMinutes}
+                keyboardType="numeric"
+              />
+            </View>
+            
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>Use Fitbit Data</Text>
+              <Switch
+                value={useFitbit}
+                onValueChange={setUseFitbit}
+                trackColor={{ false: '#767577', true: '#81b0ff' }}
+                thumbColor={useFitbit ? '#f5dd4b' : '#f4f3f4'}
+              />
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Sleep description (optional):</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={sleepDescription}
-            onChangeText={setSleepDescription}
-            placeholder="How are you feeling?"
-            multiline
-            numberOfLines={3}
-            editable={!isTimerRunning && !isLoading}
-          />
-          <TouchableOpacity 
-            style={[styles.analyzeButton, (isTimerRunning || isLoading) && styles.analyzeButtonDisabled]} 
-            onPress={handleAnalyze}
-            disabled={isTimerRunning || isLoading}
-          >
-            <Text style={styles.analyzeButtonText}>Analyze</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[styles.button, isLoading && styles.buttonDisabled]}
+                onPress={handleSubmit}
+                disabled={isLoading}
+              >
+                <MaterialCommunityIcons name="play" size={24} color="#fff" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>
+                  {isLoading ? 'Processing...' : 'Start Timer'}
+                </Text>
+              </TouchableOpacity>
 
-        <View style={styles.fitbitContainer}>
-          <Text style={styles.label}>Use Fitbit data:</Text>
-          <Switch
-            value={useFitbit}
-            onValueChange={setUseFitbit}
-            disabled={isTimerRunning || isLoading}
-          />
-          <Text style={styles.fitbitNote}>
-            {useFitbit ? 'Using real-time Fitbit data' : 'Using sample data'}
-          </Text>
-        </View>
+              {timeRemaining !== null && (
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={handleCancel}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        {isTimerRunning && (
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerLabel}>Time Remaining:</Text>
-            <Text style={styles.timer}>{formatTime(timeRemaining || 0)}</Text>
+            {timeRemaining !== null && (
+              <Animated.View style={[styles.timerContainer, { transform: [{ scale: pulseAnim }] }]}>
+                <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
+                <Text style={styles.timerLabel}>Time Remaining</Text>
+              </Animated.View>
+            )}
+
+            {processedData.length > 0 && (
+              <View style={styles.dataCard}>
+                <Text style={styles.dataTitle}>Sleep Analysis</Text>
+                <View style={styles.chartContainer}>
+                  <DosePlot data={processedData} />
+                </View>
+              </View>
+            )}
           </View>
-        )}
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.submitButton, (isTimerRunning || isLoading) && styles.submitButtonDisabled]} 
-            onPress={handleSubmit}
-            disabled={isTimerRunning || isLoading}
-          >
-            <Text style={styles.submitButtonText}>
-              {isLoading ? 'Loading...' : isTimerRunning ? 'Timer Running...' : 'Calculate Optimal Dose'}
-            </Text>
-          </TouchableOpacity>
-
-          {isTimerRunning && (
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={handleCancel}
-            >
-              <Text style={styles.cancelButtonText}>Cancel Sleep</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {processedData.length > 0 && (
-          <DosePlot data={processedData} />
-        )}
-
-        <View style={styles.navigation}>
-          <Link href="/" style={styles.link}>
-            Back to Home
-          </Link>
-        </View>
-      </View>
-    </ScrollView>
+        </ScrollView>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#4A90E2',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    opacity: 0.9,
   },
   content: {
-    padding: 20,
+    flex: 1,
   },
-  inputContainer: {
-    marginBottom: 20,
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 60,
   },
-  label: {
-    fontSize: 16,
-    color: '#333333',
-    marginBottom: 8,
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 25,
+    padding: 25,
+    margin: 20,
+    width: '95%',
+    alignSelf: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
-  input: {
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
-    fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  timerContainer: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  timerLabel: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 8,
-  },
-  timer: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#4A90E2',
-  },
-  buttonContainer: {
-    marginBottom: 20,
-  },
-  submitButton: {
-    backgroundColor: '#4A90E2',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    backgroundColor: '#FF4444',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  cancelButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  navigation: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  link: {
-    backgroundColor: '#4A90E2',
-    padding: 15,
-    borderRadius: 8,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 150,
+  title: {
+    fontSize: 38,
+    fontWeight: '900',
+    color: '#fff',
+    marginBottom: 25,
+    letterSpacing: 0.8,
     textAlign: 'center',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-black',
+    }),
+  },
+  descriptionContainer: {
+    marginBottom: 25,
+    width: '100%',
+  },
+  descriptionInputContainer: {
+    marginTop: 12,
+    width: '100%',
+  },
+  descriptionInput: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 20,
+    color: '#fff',
+    fontSize: 17,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    width: '100%',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+    }),
   },
   analyzeButton: {
-    backgroundColor: '#4A90E2',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  analyzeButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-  },
-  analyzeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  fitbitContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
+    justifyContent: 'center',
+    backgroundColor: '#4A148C',
+    borderRadius: 20,
+    padding: 18,
+    marginTop: 12,
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  fitbitNote: {
+  analyzeButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
     marginLeft: 10,
-    color: '#666666',
-    fontSize: 14,
+    letterSpacing: 0.4,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 25,
+    width: '100%',
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 17,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+    }),
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+    width: '100%',
+  },
+  switchLabel: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+    marginBottom: 25,
+    width: '100%',
+  },
+  button: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4A148C',
+    borderRadius: 20,
+    padding: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  cancelButton: {
+    backgroundColor: '#D32F2F',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonIcon: {
+    marginRight: 12,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.4,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  timerContainer: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 25,
+    width: '100%',
+  },
+  timerText: {
+    fontSize: 52,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1.2,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-black',
+    }),
+  },
+  timerLabel: {
+    fontSize: 17,
+    color: '#fff',
+    opacity: 0.9,
+    marginTop: 5,
+    letterSpacing: 0.4,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+    }),
+  },
+  dataCard: {
+    width: '100%',
+    marginTop: 20,
+  },
+  dataTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 20,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-black',
+    }),
+  },
+  chartContainer: {
+    width: '100%',
+    height: 300,
+    marginTop: 20,
+    paddingBottom: 30,
   },
 }); 

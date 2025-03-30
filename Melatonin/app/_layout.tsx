@@ -8,7 +8,7 @@ import 'react-native-reanimated';
 import { View, StyleSheet } from 'react-native';
 import BottomNav from '../components/BottomNav';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme } from '../hooks/useColorScheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
