@@ -155,7 +155,7 @@ We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) 
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Team
+## Team
 
 - Charles Muehlberger - [@charlespers](https://github.com/charlespers)
 - Phu Duong - [@phuduong](https://github.com/phuduong)
