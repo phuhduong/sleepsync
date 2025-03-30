@@ -1,7 +1,5 @@
 # SleepSync
 
-# SleepSync 🌙
-
 A personalized sleep optimization solution that combines real-time biometric data with adaptive melatonin dosing.
 
 [![Expo](https://img.shields.io/badge/Expo-000?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
@@ -9,7 +7,7 @@ A personalized sleep optimization solution that combines real-time biometric dat
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Arduino](https://img.shields.io/badge/Arduino-00979D?style=for-the-badge&logo=Arduino&logoColor=white)](https://www.arduino.cc/)
 
-## 🌟 Features
+## Features
 
 - **Real-time Biometric Monitoring**: Integrates with Fitbit and other wearable devices to track:
 
@@ -37,7 +35,7 @@ A personalized sleep optimization solution that combines real-time biometric dat
   - Historical data analysis
   - Dark/Light mode support
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 
@@ -62,7 +60,7 @@ A personalized sleep optimization solution that combines real-time biometric dat
 - Mechanical pump system
 - Transdermal patch (proof of concept)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -107,7 +105,7 @@ npx expo start
 3. Configure the WiFi settings in the Arduino code
 4. Connect the mechanical pump to the specified pins
 
-## 📱 App Structure
+## App Structure
 
 ```
 Melatonin/
@@ -130,7 +128,7 @@ Melatonin/
     └── images/            # App images and icons
 ```
 
-## 🔬 How It Works
+## How It Works
 
 1. **Data Collection**:
 
@@ -149,11 +147,11 @@ Melatonin/
    - Gemini analyzes feedback through NLP
    - Algorithm adjusts for future doses
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -164,12 +162,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Jaime Nunez - [@Jaimenunez10](https://github.com/Jaimenunez10)
 - Tom Wang - [@tom05919](https://github.com/tom05919)
 
-## 📧 Contact
+## Contact
 
 - Email: cm6268@princeton.edu | phu.duong@princeton.edu
 - Project Link: [https://github.com/yourusername/SleepSync](https://github.com/phuduong/SleepSync)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Fitbit API for biometric data
 - Google Gemini for NLP capabilities
