@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, Animated, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, Animated, Dimensions, Platform, AppState, AppStateStatus } from 'react-native';
 import { Link } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
@@ -29,6 +29,9 @@ export default function Sleep() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Add new state for app state
+  const [appState, setAppState] = useState(AppState.currentState);
 
   useEffect(() => {
     // Load dark mode preference
@@ -86,6 +89,90 @@ export default function Sleep() {
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timeRemaining]);
+
+  // Load timer state on component mount
+  useEffect(() => {
+    loadTimerState();
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Save timer state when component unmounts or app goes to background
+  useEffect(() => {
+    if (isTimerRunning) {
+      saveTimerState();
+    }
+  }, [isTimerRunning, timeRemaining, totalTime, elapsedTime]);
+
+  const loadTimerState = async () => {
+    try {
+      const savedState = await AsyncStorage.getItem('timerState');
+      if (savedState) {
+        const { timeRemaining, totalTime, elapsedTime, isTimerRunning, startTime } = JSON.parse(savedState);
+        if (isTimerRunning) {
+          const now = Date.now();
+          const elapsedSinceStart = Math.floor((now - startTime) / 1000);
+          const newTimeRemaining = Math.max(0, timeRemaining - elapsedSinceStart);
+          
+          if (newTimeRemaining > 0) {
+            setTimeRemaining(newTimeRemaining);
+            setTotalTime(totalTime);
+            setElapsedTime(elapsedTime + elapsedSinceStart);
+            setIsTimerRunning(true);
+          } else {
+            // Timer has completed while app was in background
+            handleTimerComplete();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading timer state:', error);
+    }
+  };
+
+  const saveTimerState = async () => {
+    try {
+      const timerState = {
+        timeRemaining,
+        totalTime,
+        elapsedTime,
+        isTimerRunning,
+        startTime: Date.now(),
+      };
+      await AsyncStorage.setItem('timerState', JSON.stringify(timerState));
+    } catch (error) {
+      console.error('Error saving timer state:', error);
+    }
+  };
+
+  const handleTimerComplete = () => {
+    setIsTimerRunning(false);
+    setTimeRemaining(0);
+    Alert.alert(
+      'Timer Complete',
+      'Your sleep session has ended. How did you sleep?',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Optionally navigate to a feedback screen or show feedback UI
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+    if (appState === 'active' && nextAppState.match(/inactive|background/)) {
+      // App is going to background
+      if (isTimerRunning) {
+        await saveTimerState();
+      }
+    }
+    setAppState(nextAppState);
+  };
 
   const handleSubmit = async () => {
     if (!sleepMinutes) return;
@@ -145,7 +232,7 @@ export default function Sleep() {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     // Reset all state
     setSleepMinutes('');
     setSleepDescription('');
@@ -154,6 +241,12 @@ export default function Sleep() {
     setTotalTime(null);
     setElapsedTime(0);
     setIsTimerRunning(false);
+    // Clear saved timer state
+    try {
+      await AsyncStorage.removeItem('timerState');
+    } catch (error) {
+      console.error('Error clearing timer state:', error);
+    }
   };
 
   const handleAnalyze = async () => {

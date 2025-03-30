@@ -46,18 +46,23 @@ export default function DosePlot({ data }: DosePlotProps) {
     propsForLabels: {
       fontSize: '12',
     },
+    fromZero: true,
+    yAxisMin: 0,
+    yAxisMax: Math.max(...data.map(d => d.calculatedDose)) * 1.2,
   };
 
   const chartData = {
     labels: data.map(d => new Date(d.timestamp).toLocaleTimeString()),
     datasets: [
       {
-        data: data.map(d => d.calculatedDose),
+        data: data.map(d => Math.max(0, d.calculatedDose)),
       },
     ],
   };
 
-  const latestDose = data[data.length - 1]?.calculatedDose || 0;
+  const latestDose = Math.max(0, data[data.length - 1]?.calculatedDose || 0);
+  const maxDose = Math.max(0, Math.max(...data.map(d => d.calculatedDose)));
+  const minDose = Math.max(0, Math.min(...data.map(d => d.calculatedDose)));
 
   return (
     <Animated.View 
@@ -102,14 +107,14 @@ export default function DosePlot({ data }: DosePlotProps) {
           <MaterialCommunityIcons name="trending-up" size={20} color="#fff" />
           <Text style={styles.summaryLabel}>Peak Dose</Text>
           <Text style={styles.summaryValue}>
-            {Math.max(...data.map(d => d.calculatedDose)).toFixed(1)} mg
+            {maxDose.toFixed(1)} mg
           </Text>
         </View>
         <View style={styles.summaryItem}>
           <MaterialCommunityIcons name="trending-down" size={20} color="#fff" />
           <Text style={styles.summaryLabel}>Min Dose</Text>
           <Text style={styles.summaryValue}>
-            {Math.min(...data.map(d => d.calculatedDose)).toFixed(1)} mg
+            {minDose.toFixed(1)} mg
           </Text>
         </View>
       </View>
