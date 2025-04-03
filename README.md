@@ -2,11 +2,6 @@
 
 A personalized sleep optimization solution that combines real-time biometric data with adaptive melatonin dosing.
 
-[![Expo](https://img.shields.io/badge/Expo-000?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
-[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Arduino](https://img.shields.io/badge/Arduino-00979D?style=for-the-badge&logo=Arduino&logoColor=white)](https://www.arduino.cc/)
-
 ## Features
 
 - **Real-time Biometric Monitoring**: Integrates with Fitbit and other wearable devices to track:
@@ -51,14 +46,12 @@ A personalized sleep optimization solution that combines real-time biometric dat
 - Express
 - Fitbit API integration
 - Google Gemini API for NLP
-- ESP8266 for hardware communication
 
 ### Hardware
 
 - ESP8266 WiFi module
 - Arduino microcontroller
-- Mechanical pump system
-- Transdermal patch (proof of concept)
+- DC pump
 
 ## Getting Started
 
@@ -150,14 +143,14 @@ Melatonin/
 ## Team
 
 - Charles Muehlberger - [@charlespers](https://github.com/charlespers)
-- Phu Duong - [@phuduong](https://github.com/phuduong)
+- Phu Duong - [@phuhduong](https://github.com/phuhduong)
 - Jaime Nunez - [@Jaimenunez10](https://github.com/Jaimenunez10)
 - Tom Wang - [@tom05919](https://github.com/tom05919)
 
 ## Contact
 
 - Email: cm6268@princeton.edu | phu.duong@princeton.edu
-- Project Link: [https://github.com/yourusername/SleepSync](https://github.com/phuduong/SleepSync)
+- Project Link: [https://github.com/phuhduong/SleepSync](https://github.com/phuhduong/SleepSync)
 
 ## Acknowledgments
 
@@ -165,7 +158,3 @@ Melatonin/
 - Google Gemini for NLP capabilities
 - Arduino community for hardware support
 - Sleep research community for scientific insights
-
----
-
-Made with ❤️ at Princeton University
