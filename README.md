@@ -127,7 +127,6 @@ npx expo start
 ## Contact
 
 - Email: cm6268@princeton.edu | phu.duong@princeton.edu
-- Project Link: [https://github.com/phuhduong/SleepSync](https://github.com/phuhduong/SleepSync)
 
 ## Acknowledgments
 
