@@ -57,7 +57,7 @@ A personalized sleep optimization solution that combines real-time biometric dat
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js
 - Expo CLI
 - Arduino IDE
 - ESP8266 development board
@@ -68,7 +68,7 @@ A personalized sleep optimization solution that combines real-time biometric dat
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/SleepSync.git
+git clone https://github.com/phuhduong/SleepSync.git
 cd SleepSync
 ```
 
@@ -94,32 +94,9 @@ npx expo start
 ### Hardware Setup
 
 1. Connect the ESP8266 to your Arduino
-2. Upload the Arduino sketch from the `hardware` directory
+2. Upload the Arduino sketch
 3. Configure the WiFi settings in the Arduino code
-4. Connect the mechanical pump to the specified pins
-
-## App Structure
-
-```
-Melatonin/
-├── app/
-│   ├── (tabs)/
-│   │   ├── index.tsx      # Home screen
-│   │   ├── sleep.tsx      # Sleep timer and analysis
-│   │   ├── data.tsx       # Biometric data visualization
-│   │   └── explore.tsx    # Sleep science guide
-│   └── _layout.tsx        # Root layout
-├── components/
-│   ├── DosePlot.tsx       # Melatonin dose visualization
-│   └── ThemedText.tsx     # Styled text components
-├── utils/
-│   ├── dataProcessor.ts   # Biometric data processing
-│   ├── esp8266.ts         # Hardware communication
-│   ├── fitbitApi.ts       # Fitbit API integration
-│   └── geminiApi.ts       # NLP processing
-└── assets/
-    └── images/            # App images and icons
-```
+4. Connect the DC pump
 
 ## How It Works
 
@@ -157,4 +134,4 @@ Melatonin/
 - Fitbit API for biometric data
 - Google Gemini for NLP capabilities
 - Arduino community for hardware support
-- Sleep research community for scientific insights
+- Sleep research for scientific insights
