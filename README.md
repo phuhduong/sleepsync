@@ -14,6 +14,8 @@ A personalized sleep optimization solution that utilizes real-time biometric dat
 - Jaime Nunez - [@Jaimenunez10](https://github.com/Jaimenunez10)
 - Tom Wang - [@tom05919](https://github.com/tom05919)
 
+HackPrinceton Spring 2025
+
 ## Tech Stack
 
 - **Frontend**: React Native (Expo), TypeScript, Chart.js  
