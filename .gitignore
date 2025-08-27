@@ -1,49 +1,37 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# VS Code settings
+.vscode/
 
 # macOS
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
 # Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+Melatonin/node_modules/
+
+# Expo
+Melatonin/.expo/
+Melatonin/dist/
+Melatonin/expo-env.d.ts
+
+# Native
+Melatonin/*.orig.*
+Melatonin/*.jks
+Melatonin/*.p8
+Melatonin/*.p12
+Melatonin/*.key
+Melatonin/*.mobileprovision
+
+# Metro
+Melatonin/.metro-health-check*
+
+# Debug logs
+Melatonin/npm-debug.*
+Melatonin/yarn-debug.*
+Melatonin/yarn-error.*
+
+# Local environment files
+Melatonin/.env*
+Melatonin/.env*.local
+
+# TypeScript build info
+Melatonin/*.tsbuildinfo
