@@ -1,9 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
-// Define your own WiFi network credentials
-const char* ssid = "Melatonin_ESP";     // Name of the WiFi network the ESP8266 will create
-const char* password = "12345678";      // Password for the WiFi network
+const char* ssid = "Melatonin_ESP";
+const char* password = "12345678";
 float dose = 0;
 int calls = 30;
 float mgPerL = 0.005;
@@ -13,18 +12,15 @@ float pumpRate = 1.5;
 ESP8266WebServer server(80);
 
 void handleDose() {
-  // Add CORS headers for all requests
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
   
-  // Handle preflight OPTIONS request
   if (server.method() == HTTP_OPTIONS) {
     server.send(200);
     return;
   }
   
-  // Log the incoming request
   Serial.println("\n--- New Request ---");
   Serial.print("Client IP: ");
   Serial.println(server.client().remoteIP());
@@ -45,7 +41,6 @@ void handleDose() {
   Serial.print("Received dose: ");
   Serial.println(dose);
   
-  // Send response
   String response = "Dose received: " + doseStr;
   server.send(200, "text/plain", response);
   Serial.println("Response sent: " + response);
@@ -61,19 +56,16 @@ void setup() {
   Serial.println("\n\nESP8266 Starting...");
   Serial.println("Setting up Access Point...");
   
-  // Set up Access Point
   WiFi.softAP(ssid, password);
   
   Serial.println("Access Point started successfully!");
   Serial.print("SSID: ");
   Serial.println(ssid);
   Serial.print("IP Address: ");
-  Serial.println(WiFi.softAPIP());  // This will typically be 192.168.4.1
+  Serial.println(WiFi.softAPIP());
 
-  // Define the route and attach the handler
   server.on("/dose", HTTP_GET, handleDose);
   
-  // Start the web server
   server.begin();
   Serial.println("HTTP server started on port 80");
   Serial.println("Waiting for requests...");
