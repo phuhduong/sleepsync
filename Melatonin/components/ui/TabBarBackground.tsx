@@ -1,4 +1,3 @@
-// This is a shim for web and Android where the tab bar is generally opaque.
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';

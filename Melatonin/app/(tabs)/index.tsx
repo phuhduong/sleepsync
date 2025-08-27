@@ -14,7 +14,6 @@ export default function HomeScreen() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    // Load dark mode preference
     AsyncStorage.getItem('isDarkMode').then(value => {
       if (value !== null) {
         setIsDarkMode(value === 'true');

@@ -1,7 +1,6 @@
 import { BiometricDataPoint } from './dataProcessor';
 import * as WebBrowser from 'expo-web-browser';
 
-// Fitbit API configuration
 const FITBIT_CLIENT_ID = process.env.EXPO_PUBLIC_FITBIT_CLIENT_ID;
 const FITBIT_CLIENT_SECRET = process.env.EXPO_PUBLIC_FITBIT_CLIENT_SECRET;
 const FITBIT_REDIRECT_URI = 'http://localhost:8081/sleep';
@@ -31,7 +30,6 @@ interface TokenResponse {
   user_id: string;
 }
 
-// Store tokens securely (in a real app, use secure storage)
 let tokenStorage: {
   accessToken: string | null;
   refreshToken: string | null;
@@ -43,18 +41,15 @@ let tokenStorage: {
 
 export async function getFitbitAccessToken(): Promise<string | null> {
   try {
-    // Check if we have a valid token
     if (tokenStorage.accessToken && tokenStorage.expiresAt && Date.now() < tokenStorage.expiresAt) {
       return tokenStorage.accessToken;
     }
 
-    // If we have a refresh token, try to refresh
     if (tokenStorage.refreshToken) {
       const newToken = await refreshAccessToken(tokenStorage.refreshToken);
       if (newToken) return newToken;
     }
 
-    // If no valid token or refresh failed, initiate OAuth flow
     return await initiateOAuthFlow();
   } catch (error) {
     console.error('Error getting Fitbit access token:', error);
@@ -64,13 +59,10 @@ export async function getFitbitAccessToken(): Promise<string | null> {
 
 async function initiateOAuthFlow(): Promise<string | null> {
   try {
-    // Generate random state for security
     const state = Math.random().toString(36).substring(7);
     
-    // Construct authorization URL
     const authUrl = `${FITBIT_AUTH_BASE}?response_type=code&client_id=${FITBIT_CLIENT_ID}&redirect_uri=${encodeURIComponent(FITBIT_REDIRECT_URI)}&scope=heartrate%20respiratory_rate%20hrv&state=${state}`;
 
-    // Open browser for authentication
     const result = await WebBrowser.openAuthSessionAsync(
       authUrl,
       FITBIT_REDIRECT_URI
@@ -82,7 +74,6 @@ async function initiateOAuthFlow(): Promise<string | null> {
       const returnedState = url.searchParams.get('state');
 
       if (code && returnedState === state) {
-        // Exchange code for tokens
         const tokenResponse = await exchangeCodeForTokens(code);
         if (tokenResponse) {
           tokenStorage = {
@@ -160,7 +151,6 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
   try {
     const accessToken = await getFitbitAccessToken();
     if (!accessToken) {
-      console.log('No Fitbit access token available, falling back to JSON data');
       return null;
     }
 
@@ -169,25 +159,20 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
       'Content-Type': 'application/json'
     };
 
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
 
-    // Fetch HRV data (hourly)
     const hrvResponse = await fetch(`${FITBIT_API_BASE}/hrv/date/${today}/1d.json`, { headers });
     if (!hrvResponse.ok) throw new Error('Failed to fetch HRV data');
     const hrvData = await hrvResponse.json();
 
-    // Fetch RHR data (hourly)
     const rhrResponse = await fetch(`${FITBIT_API_BASE}/activities/heart/date/${today}/1d.json`, { headers });
     if (!rhrResponse.ok) throw new Error('Failed to fetch RHR data');
     const rhrData = await rhrResponse.json();
 
-    // Fetch respiratory rate data (hourly)
     const respResponse = await fetch(`${FITBIT_API_BASE}/respiratory-rate/date/${today}/1d.json`, { headers });
     if (!respResponse.ok) throw new Error('Failed to fetch respiratory rate data');
     const respData = await respResponse.json();
 
-    // Transform Fitbit data to match our BiometricDataPoint interface
     const transformedData: FitbitData = {
       hrv: hrvData.hrv.map((point: any) => ({
         value: point.value,
@@ -214,23 +199,18 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
 }
 
 export async function getBiometricData(): Promise<FitbitData> {
-  // Try to get Fitbit credentials from environment
   const credentials: FitbitCredentials = {
     clientId: FITBIT_CLIENT_ID || '',
     clientSecret: FITBIT_CLIENT_SECRET || '',
     accessToken: await getFitbitAccessToken()
   };
 
-  // Try to fetch data from Fitbit
   const fitbitData = await fetchFitbitData(credentials);
   
   if (fitbitData) {
-    console.log('Successfully fetched data from Fitbit');
     return fitbitData;
   }
 
-  // Fallback to JSON data
-  console.log('Falling back to JSON data');
   const jsonData = require('../data/sample_biometrics.json');
   return {
     hrv: jsonData.historical_data.hrv,

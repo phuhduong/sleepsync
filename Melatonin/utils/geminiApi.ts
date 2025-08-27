@@ -1,17 +1,14 @@
 import { Alert } from 'react-native';
 
-// Gemini API configuration
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-// Global feedback variable
 let globalFeedback = 0;
 
 export const getGlobalFeedback = () => globalFeedback;
 
 export const analyzeSleepDescription = async (description: string): Promise<number> => {
   try {
-    // Validate API key
     if (!GEMINI_API_KEY) {
       console.error("Invalid Gemini API key");
       Alert.alert(
@@ -35,8 +32,6 @@ export const analyzeSleepDescription = async (description: string): Promise<numb
     Description: "${description}"
     
     Respond with ONLY a single number between -1 and 1, nothing else. For example: 0.5 or -0.3`;
-
-    console.log("Sending prompt to Gemini:", prompt);
 
     const response = await fetch(
       `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
@@ -66,31 +61,22 @@ export const analyzeSleepDescription = async (description: string): Promise<numb
     }
 
     const data = await response.json();
-    console.log("Raw Gemini response:", data);
 
-    // Extract the score from the response
     const responseText = data.candidates[0].content.parts[0].text.trim();
-    console.log("Extracted response text:", responseText);
 
-    // Try to parse the score, handling various formats
     let score = 0;
     const numberMatch = responseText.match(/-?\d*\.?\d+/);
     if (numberMatch) {
       score = parseFloat(numberMatch[0]);
-      // Ensure the score is between -1 and 1
       score = Math.max(-1, Math.min(1, score));
-      console.log("Parsed score:", score);
     } else {
-      console.log("No valid number found in response");
       Alert.alert(
         "Analysis Error",
         "Could not parse the sleep analysis result. Please try again."
       );
     }
     
-    // Update global feedback
     globalFeedback = score;
-    console.log("Updated global feedback:", globalFeedback);
     
     return globalFeedback;
   } catch (error) {

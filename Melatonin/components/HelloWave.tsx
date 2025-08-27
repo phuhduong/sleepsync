@@ -7,7 +7,6 @@ export function HelloWave() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Create a continuous wave animation
     const waveSequence = Animated.sequence([
       Animated.timing(waveAnim, {
         toValue: 1,
@@ -23,7 +22,6 @@ export function HelloWave() {
       }),
     ]);
 
-    // Create a subtle scale animation
     const scaleSequence = Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 1.2,
@@ -39,7 +37,6 @@ export function HelloWave() {
       }),
     ]);
 
-    // Run animations in parallel and loop them
     Animated.loop(
       Animated.parallel([waveSequence, scaleSequence])
     ).start();

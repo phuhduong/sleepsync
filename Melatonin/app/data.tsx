@@ -27,18 +27,16 @@ export default function Data() {
     }
   };
 
-  // Process the data with current time as target
   const processedData = processBiometricData(
     biometricData.historical_data.hrv,
     biometricData.historical_data.rhr,
     biometricData.historical_data.respiratory_rate,
     biometricData.recommended_base_dose,
-    new Date().toISOString(), // Current time as target
-    3600, // 1 hour total time
-    3600  // 1 hour remaining time
+    new Date().toISOString(),
+    3600,
+    3600
   );
 
-  // Get the latest data point
   const latestData = processedData[processedData.length - 1];
 
   return (

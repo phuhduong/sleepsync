@@ -12,12 +12,10 @@ export default function Profile() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   
-  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Load dark mode preference
     AsyncStorage.getItem('isDarkMode').then(value => {
       if (value !== null) {
         setIsDarkMode(value === 'true');

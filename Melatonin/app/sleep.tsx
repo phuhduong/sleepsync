@@ -25,16 +25,13 @@ export default function Sleep() {
   const [useFitbit, setUseFitbit] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Add new state for app state
   const [appState, setAppState] = useState(AppState.currentState);
 
   useEffect(() => {
-    // Load dark mode preference
     AsyncStorage.getItem('isDarkMode').then(value => {
       if (value !== null) {
         setIsDarkMode(value === 'true');
@@ -55,7 +52,6 @@ export default function Sleep() {
         setTimeRemaining(prev => prev !== null ? prev - 1 : null);
         setElapsedTime(prev => prev + 1);
         
-        // Pulse animation for the timer
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.1,
@@ -71,7 +67,6 @@ export default function Sleep() {
       }, 1000);
     } else if (timeRemaining === 0) {
       setIsTimerRunning(false);
-      // Celebration animation
       Animated.sequence([
         Animated.spring(scaleAnim, {
           toValue: 1.2,
@@ -90,7 +85,6 @@ export default function Sleep() {
     return () => clearInterval(interval);
   }, [isTimerRunning, timeRemaining]);
 
-  // Load timer state on component mount
   useEffect(() => {
     loadTimerState();
     const subscription = AppState.addEventListener('change', handleAppStateChange);
@@ -99,7 +93,6 @@ export default function Sleep() {
     };
   }, []);
 
-  // Save timer state when component unmounts or app goes to background
   useEffect(() => {
     if (isTimerRunning) {
       saveTimerState();
@@ -122,7 +115,6 @@ export default function Sleep() {
             setElapsedTime(elapsedTime + elapsedSinceStart);
             setIsTimerRunning(true);
           } else {
-            // Timer has completed while app was in background
             handleTimerComplete();
           }
         }
@@ -157,7 +149,6 @@ export default function Sleep() {
         {
           text: 'OK',
           onPress: () => {
-            // Optionally navigate to a feedback screen or show feedback UI
           }
         }
       ]
@@ -166,7 +157,6 @@ export default function Sleep() {
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (appState === 'active' && nextAppState.match(/inactive|background/)) {
-      // App is going to background
       if (isTimerRunning) {
         await saveTimerState();
       }
@@ -182,27 +172,23 @@ export default function Sleep() {
 
     setIsLoading(true);
     try {
-      // Set the timer and total time
       const totalSeconds = minutes * 60;
       setTimeRemaining(totalSeconds);
       setTotalTime(totalSeconds);
       setElapsedTime(0);
       setIsTimerRunning(true);
 
-      // Calculate target time (current time + minutes)
       const targetTime = new Date();
       targetTime.setMinutes(targetTime.getMinutes() + minutes);
 
-      // Get biometric data (will automatically fall back to JSON if Fitbit fails)
       const biometricData = useFitbit ? await getBiometricData() : null;
       const jsonData = require('../data/sample_biometrics.json').historical_data;
 
-      // Process the data with R and T values
       const data = processBiometricData(
         biometricData?.hrv || jsonData.hrv,
         biometricData?.rhr || jsonData.rhr,
         biometricData?.respiratoryRate || jsonData.respiratory_rate,
-        1.0, // base dose - you might want to make this configurable
+        1.0,
         targetTime.toISOString(),
         totalSeconds,
         totalSeconds
@@ -210,14 +196,11 @@ export default function Sleep() {
 
       setProcessedData(data);
 
-      // Get the latest calculated dose and update global state
       const latestDose = data[data.length - 1].calculatedDose;
       updateLatestDosage(latestDose);
 
       try {
-        // Send the dose to ESP8266
         await sendDoseToESP8266(latestDose);
-        console.log('Dose sent successfully to ESP8266');
       } catch (error) {
         console.error('Failed to send dose to ESP8266:', error);
       }
@@ -233,7 +216,6 @@ export default function Sleep() {
   };
 
   const handleCancel = async () => {
-    // Reset all state
     setSleepMinutes('');
     setSleepDescription('');
     setProcessedData([]);
@@ -241,7 +223,6 @@ export default function Sleep() {
     setTotalTime(null);
     setElapsedTime(0);
     setIsTimerRunning(false);
-    // Clear saved timer state
     try {
       await AsyncStorage.removeItem('timerState');
     } catch (error) {
@@ -276,7 +257,6 @@ export default function Sleep() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate current R value based on elapsed time
   const getCurrentR = () => {
     if (totalTime === null) return 0;
     return Math.max(0, totalTime - elapsedTime);

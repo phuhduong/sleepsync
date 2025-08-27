@@ -63,7 +63,7 @@ export function Collapsible({ title, children }: CollapsibleProps) {
           {
             maxHeight: heightAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [0, 500], // Adjust this value based on your content
+              outputRange: [0, 500],
             }),
             opacity: heightAnim,
           },
