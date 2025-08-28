@@ -198,6 +198,7 @@ export default function Sleep() {
 
       try {
         await sendDoseToESP8266(latestDose);
+        console.log('Dose sent successfully to ESP8266');
       } catch (error) {
         console.error('Failed to send dose to ESP8266:', error);
       }

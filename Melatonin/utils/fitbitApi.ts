@@ -151,6 +151,7 @@ export async function fetchFitbitData(credentials: FitbitCredentials): Promise<F
   try {
     const accessToken = await getFitbitAccessToken();
     if (!accessToken) {
+      console.log('No Fitbit access token available, falling back to JSON data');
       return null;
     }
 
@@ -208,9 +209,11 @@ export async function getBiometricData(): Promise<FitbitData> {
   const fitbitData = await fetchFitbitData(credentials);
   
   if (fitbitData) {
+    console.log('Successfully fetched data from Fitbit');
     return fitbitData;
   }
 
+  console.log('Falling back to JSON data');
   const jsonData = require('../data/sample_biometrics.json');
   return {
     hrv: jsonData.historical_data.hrv,
