@@ -1,5 +1,4 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Animated, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +7,6 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
-  const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   

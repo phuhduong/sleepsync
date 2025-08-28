@@ -1,17 +1,14 @@
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, Animated, Dimensions, Platform, AppState, AppStateStatus } from 'react-native';
-import { Link } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { processBiometricData } from '../utils/dataProcessor';
 import { sendDoseToESP8266 } from '../utils/esp8266';
-import { updateLatestDosage, getLatestDosage } from '../utils/globalState';
+import { updateLatestDosage } from '../utils/globalState';
 import { analyzeSleepDescription } from '../utils/geminiApi';
 import { getBiometricData } from '../utils/fitbitApi';
 import DosePlot from '../components/DosePlot'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const { width } = Dimensions.get('window');
 
 export default function Sleep() {
   const [sleepMinutes, setSleepMinutes] = useState('');

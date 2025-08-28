@@ -1,6 +1,5 @@
 import { Image, StyleSheet, Platform, TouchableOpacity, ScrollView, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,7 +9,6 @@ import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
