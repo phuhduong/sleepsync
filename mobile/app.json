@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Melatonin",
-    "slug": "Melatonin",
+    "name": "sleepsync",
+    "slug": "sleepsync",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

@@ -1,0 +1,15 @@
+# Claude Code — local context, not shared
+CLAUDE.md
+.claude/
+
+# Environment / secrets (belt-and-braces; mobile/.gitignore also covers these)
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
