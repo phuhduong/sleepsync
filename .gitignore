@@ -13,3 +13,6 @@ CLAUDE.md
 # Editor / IDE
 .vscode/
 .idea/
+
+# Dev files
+DESIGN_BRIEF.md
