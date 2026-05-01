@@ -1,6 +1,6 @@
 import { Pressable, Text, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { colors, fonts } from '../theme/tokens';
 
 type Props = {
   onPress: () => void;
@@ -28,8 +28,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   label: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 15,
+    fontFamily: fonts.bodyM,
+    fontSize: 14,
     color: colors.textSec,
   },
 });

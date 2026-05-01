@@ -1,46 +1,68 @@
-import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
+import { Animated, Easing, View, Text, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/tokens';
-import { findProfile } from '../utils/profiles';
+import { BlurView } from 'expo-blur';
+import { colors, fonts } from '../theme/tokens';
+import { findProfile, type Phase } from '../utils/profiles';
+import { formatMinutesAsTime12h, clockMinutesFromDate } from '../utils/sleepSchedule';
 import { useAppState } from '../state/AppState';
 import { PatchSimulator } from '../components/PatchSimulator';
 import { SmallCapsLabel } from '../components/SmallCapsLabel';
 import { PhaseTimelineStrip } from '../components/PhaseTimelineStrip';
 import { ProfileCurve } from '../components/ProfileCurve';
 import { BottomSheet } from '../components/BottomSheet';
-import { PrimaryCTA } from '../components/PrimaryCTA';
+import { LiveAmbient } from '../components/LiveAmbient';
+import { StatNumber } from '../components/StatNumber';
+import { SegmentedControl } from '../components/SegmentedControl';
 
 const SESSION_HOURS = 8;
+const SESSION_MS = SESSION_HOURS * 60 * 60 * 1000;
+
+/** Target wall-clock length for a full profile run in demo mode (pitch-friendly). */
+const DEMO_FULL_SESSION_SECONDS = 60;
+/** Speed multiplier so a full virtual session completes in DEMO_FULL_SESSION_SECONDS of wall clock. */
+const DEMO_SPEED_MULTIPLIER = SESSION_MS / (DEMO_FULL_SESSION_SECONDS * 1000);
+const HOLD_CANCEL_MS = 900;
+const HOLD_BAR_WIDTH = 280;
 
 export default function LiveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { selectedProfileId } = useAppState();
+  const { width, height } = useWindowDimensions();
+  const { selectedProfileId, wakeMinutes } = useAppState();
   const profile = findProfile(selectedProfileId);
+  const colWidth = Math.min(width, 390);
+
+  /** Wall-clock moment this overnight run began — session timeline is anchored here, not habitual bedtime. */
+  const [sessionStartedAt] = useState(() => new Date());
 
   const [demoMode, setDemoMode] = useState(false);
-  const [elapsed, setElapsed] = useState(0.28);
+  const [elapsed, setElapsed] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const finishedRef = useRef(false);
+  const virtualSessionMsRef = useRef(0);
+  const lastTickRef = useRef(Date.now());
 
   useEffect(() => {
     finishedRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    lastTickRef.current = Date.now();
     const id = setInterval(() => {
-      setElapsed(e => {
-        const speed = demoMode ? 0.002 : 0.00003;
-        const next = e + speed;
-        if (next >= 1) {
-          if (!finishedRef.current) {
-            finishedRef.current = true;
-            router.replace('/debrief' as never);
-          }
-          return 1;
-        }
-        return next;
-      });
+      const now = Date.now();
+      const deltaMs = now - lastTickRef.current;
+      lastTickRef.current = now;
+      const rate = demoMode ? DEMO_SPEED_MULTIPLIER : 1;
+      virtualSessionMsRef.current += deltaMs * rate;
+      const nextElapsed = Math.min(1, virtualSessionMsRef.current / SESSION_MS);
+      setElapsed(nextElapsed);
+      if (nextElapsed >= 1 && !finishedRef.current) {
+        finishedRef.current = true;
+        router.replace('/debrief' as never);
+      }
     }, 100);
     return () => clearInterval(id);
   }, [demoMode, router]);
@@ -89,107 +111,190 @@ export default function LiveScreen() {
 
   const intensityPct = Math.round(currentDose * 100);
 
+  const inOpacity = useRef(new Animated.Value(1)).current;
+  const outOpacity = useRef(new Animated.Value(0)).current;
+  const holdProgress = useRef(new Animated.Value(0)).current;
+  const lastPhaseIdxRef = useRef(currentPhaseIdx);
+  const [outgoingPhase, setOutgoingPhase] = useState<Phase | null>(null);
+  useEffect(() => {
+    if (lastPhaseIdxRef.current === currentPhaseIdx) return;
+    setOutgoingPhase(profile.phases[lastPhaseIdxRef.current]);
+    lastPhaseIdxRef.current = currentPhaseIdx;
+    inOpacity.setValue(0);
+    outOpacity.setValue(1);
+    Animated.parallel([
+      Animated.timing(inOpacity,  { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(outOpacity, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) setOutgoingPhase(null);
+    });
+  }, [currentPhaseIdx, profile.phases, inOpacity, outOpacity]);
+
+  const cancelHoldStart = () => {
+    holdProgress.stopAnimation();
+    holdProgress.setValue(0);
+    Animated.timing(holdProgress, {
+      toValue: 1,
+      duration: HOLD_CANCEL_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) setCancelConfirm(true);
+      holdProgress.setValue(0);
+    });
+  };
+
+  const cancelHoldEnd = () => {
+    holdProgress.stopAnimation();
+    holdProgress.setValue(0);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={styles.column}>
+      <LiveAmbient width={colWidth} height={height} />
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.timeText}>{nowTime}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {demoMode && (
-            <View style={styles.demoBadge}>
-              <SmallCapsLabel style={{ color: colors.accent }}>60× Demo</SmallCapsLabel>
-            </View>
-          )}
-          <Pressable onPress={() => setDemoMode(d => !d)} style={styles.modeBtn}>
-            <Text style={styles.modeBtnText}>{demoMode ? 'LIVE' : 'DEMO'}</Text>
-          </Pressable>
-        </View>
       </View>
 
       <View style={styles.heroWrap}>
         <PatchSimulator dose={currentDose} isActive size={230} onPress={() => setSheetOpen(true)} />
-        <View style={{ alignItems: 'center', marginTop: 32 }}>
-          <SmallCapsLabel style={{ marginBottom: 8 }}>Now</SmallCapsLabel>
-          <Text style={styles.phaseName}>{currentPhase.name}</Text>
-          {nextPhase ? (
-            <Text style={styles.nextPhase}>{nextPhase.name} in {timeRemaining}</Text>
-          ) : (
-            <Text style={[styles.nextPhase, { color: colors.accent }]}>Final phase</Text>
+        <View style={styles.phaseBlock}>
+          {outgoingPhase && (
+            <Animated.View style={[styles.phaseLayer, { opacity: outOpacity }]}>
+              <SmallCapsLabel style={{ marginBottom: 8 }}>Now</SmallCapsLabel>
+              <Text style={styles.phaseName}>{outgoingPhase.name}</Text>
+            </Animated.View>
           )}
+          <Animated.View style={[styles.phaseLayer, { opacity: inOpacity }]}>
+            <SmallCapsLabel style={{ marginBottom: 8 }}>Now</SmallCapsLabel>
+            <Text style={styles.phaseName}>{currentPhase.name}</Text>
+            {nextPhase ? (
+              <Text style={styles.nextPhase}>{nextPhase.name} in {timeRemaining}</Text>
+            ) : (
+              <Text style={[styles.nextPhase, { color: colors.accent }]}>Final phase</Text>
+            )}
+          </Animated.View>
         </View>
       </View>
 
       <View style={[styles.timelineWrap, { paddingBottom: 36 + insets.bottom }]}>
+        <View style={{ marginBottom: 14 }}>
+          <SmallCapsLabel style={{ marginBottom: 8 }}>Session speed</SmallCapsLabel>
+          <SegmentedControl
+            options={[
+              { value: 'live', label: 'Real-time' },
+              { value: 'demo', label: `Demo · ~${DEMO_FULL_SESSION_SECONDS}s` },
+            ]}
+            value={demoMode ? 'demo' : 'live'}
+            onChange={(v) => setDemoMode(v === 'demo')}
+          />
+        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-          <SmallCapsLabel>10:30 PM</SmallCapsLabel>
-          <SmallCapsLabel>6:30 AM</SmallCapsLabel>
+          <View style={{ flex: 1 }}>
+            <SmallCapsLabel style={{ marginBottom: 4 }}>Session start</SmallCapsLabel>
+            <Text style={styles.timelineAnchorValue}>
+              {formatMinutesAsTime12h(clockMinutesFromDate(sessionStartedAt))}
+            </Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <SmallCapsLabel style={{ marginBottom: 4 }}>Usual wake</SmallCapsLabel>
+            <Text style={styles.timelineAnchorValue}>{formatMinutesAsTime12h(wakeMinutes)}</Text>
+          </View>
         </View>
         <PhaseTimelineStrip phases={profile.phases} currentIdx={currentPhaseIdx} phaseProgress={phaseProgress} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <SmallCapsLabel>{profile.phases.map(p => p.name.split(' ')[0]).join(' · ')}</SmallCapsLabel>
-          <Pressable
-            onLongPress={() => setCancelConfirm(true)}
-            delayLongPress={700}
-            hitSlop={6}
-          >
-            <Text style={styles.cancelHint}>HOLD TO CANCEL</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPressIn={cancelHoldStart}
+          onPressOut={cancelHoldEnd}
+          style={styles.holdCancelPress}
+          accessibilityRole="button"
+          accessibilityLabel="Hold to cancel session"
+        >
+          <View style={styles.holdTrack}>
+            <Animated.View
+              style={[
+                styles.holdFill,
+                {
+                  width: holdProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, HOLD_BAR_WIDTH],
+                  }),
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.cancelHint}>HOLD TO CANCEL SESSION</Text>
+        </Pressable>
+      </View>
       </View>
 
       <Modal visible={cancelConfirm} transparent animationType="fade" onRequestClose={() => setCancelConfirm(false)}>
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>Cancel session?</Text>
-            <Text style={styles.confirmBody}>
-              Stopping the patch early will end tonight&apos;s delivery profile. You&apos;ll still be prompted for a morning debrief.
-            </Text>
-            <PrimaryCTA
-              label="Stop Session"
-              onPress={() => {
-                setCancelConfirm(false);
-                router.replace('/debrief' as never);
-              }}
-              style={{ backgroundColor: 'rgba(220,60,60,0.85)', borderColor: 'rgba(255,120,120,0.3)' }}
-            />
-            <Pressable onPress={() => setCancelConfirm(false)} style={{ paddingVertical: 14, alignItems: 'center', marginTop: 4 }}>
-              <Text style={{ color: colors.textSec, fontFamily: 'Inter_400Regular', fontSize: 15 }}>Keep Running</Text>
-            </Pressable>
+        <View style={styles.confirmRoot}>
+          <Pressable
+            style={[StyleSheet.absoluteFillObject, styles.confirmDim]}
+            onPress={() => setCancelConfirm(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss"
+          />
+          <View
+            style={[
+              styles.confirmCenter,
+              { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) },
+            ]}
+            pointerEvents="box-none"
+          >
+            <BlurView intensity={28} tint="dark" style={styles.confirmGlass}>
+              <SmallCapsLabel style={styles.confirmEyebrow}>Tonight · Live session</SmallCapsLabel>
+              <Text style={styles.confirmHeading}>End delivery early?</Text>
+              <Text style={styles.confirmBody}>
+                The patch stops following your overnight profile. You can still open the morning debrief when you&apos;re up.
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setCancelConfirm(false);
+                  router.replace('/debrief' as never);
+                }}
+                style={({ pressed }) => [styles.confirmDangerCta, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Stop session and go to debrief"
+              >
+                <Text style={styles.confirmDangerLabel}>Stop & debrief</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setCancelConfirm(false)}
+                style={styles.confirmSecondary}
+                hitSlop={10}
+                accessibilityRole="button"
+              >
+                <Text style={styles.confirmSecondaryLabel}>Keep tonight&apos;s session running</Text>
+              </Pressable>
+            </BlurView>
           </View>
         </View>
       </Modal>
 
       <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
-        <SmallCapsLabel style={{ marginBottom: 20 }}>Session Detail</SmallCapsLabel>
         <View style={{ flexDirection: 'row' }}>
-          {[
+          {([
             ['Intensity', `${intensityPct}%`],
             ['Phase', `${currentPhaseIdx + 1} / ${profile.phases.length}`],
-            ['Elapsed', `${Math.round(elapsed * SESSION_HOURS * 60)}m`],
-          ].map(([label, val], i) => (
+            ['Since start', `${Math.round(elapsed * SESSION_HOURS * 60)}m`],
+          ] as const).map(([label, val], i) => (
             <View
-              key={i}
+              key={label}
               style={{
                 flex: 1,
-                alignItems: 'center',
                 borderRightWidth: i < 2 ? StyleSheet.hairlineWidth : 0,
                 borderRightColor: colors.border,
               }}
             >
-              <SmallCapsLabel style={{ marginBottom: 6 }}>{label}</SmallCapsLabel>
-              <Text style={styles.sheetStat}>{val}</Text>
+              <StatNumber value={val} label={label} size={44} />
             </View>
           ))}
         </View>
-        <View style={{ marginTop: 24 }}>
+        <View style={{ marginTop: 28 }}>
           <SmallCapsLabel style={{ marginBottom: 12 }}>Delivery Profile</SmallCapsLabel>
-          <ProfileCurve keyframes={profile.keyframes} width={330} height={90} showLabels={false} currentT={elapsed} />
-        </View>
-        <View style={{ marginTop: 20 }}>
-          <SmallCapsLabel style={{ marginBottom: 8 }}>Tonight&apos;s Profile</SmallCapsLabel>
-          <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 18, color: colors.text }}>{profile.name}</Text>
-          <Text style={{ marginTop: 3, fontSize: 13, color: colors.textSec, fontFamily: 'Inter_400Regular' }}>
-            {profile.rationale}
-          </Text>
+          <ProfileCurve keyframes={profile.keyframes} width={330} height={90} currentT={elapsed} />
         </View>
       </BottomSheet>
     </View>
@@ -197,6 +302,12 @@ export default function LiveScreen() {
 }
 
 const styles = StyleSheet.create({
+  column: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 390,
+    alignSelf: 'center',
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -204,65 +315,128 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 12,
   },
-  timeText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.textTer, fontVariant: ['tabular-nums'] },
-  demoBadge: {
-    backgroundColor: colors.accentDim,
-    borderWidth: 1,
-    borderColor: colors.accentMid,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  modeBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  modeBtnText: {
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textTer,
-    fontSize: 11,
-    letterSpacing: 0.5,
+  timelineAnchorValue: {
+    fontFamily: fonts.bodyS,
+    fontSize: 15,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
   },
   heroWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 0 },
-  phaseName: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 38,
-    color: colors.text,
-    letterSpacing: -0.8,
+  phaseBlock: {
+    alignItems: 'center',
+    marginTop: 32,
+    minHeight: 110,
+    alignSelf: 'stretch',
   },
-  nextPhase: { marginTop: 8, fontSize: 14, color: colors.textSec, fontFamily: 'Inter_400Regular' },
+  phaseLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  phaseName: {
+    fontFamily: fonts.hero,
+    fontSize: 44,
+    color: colors.text,
+    letterSpacing: -0.5,
+  },
+  nextPhase: { marginTop: 8, fontSize: 14, color: colors.textSec, fontFamily: fonts.body },
   timelineWrap: { paddingHorizontal: 24 },
+  holdCancelPress: {
+    marginTop: 20,
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingVertical: 12,
+  },
+  holdTrack: {
+    width: HOLD_BAR_WIDTH,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  holdFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.dangerDim,
+  },
   cancelHint: {
-    fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(255,80,80,0.5)',
+    fontFamily: fonts.bodyM,
+    color: colors.dangerDim,
     fontSize: 11,
     letterSpacing: 0.7,
   },
-  confirmOverlay: {
+  confirmRoot: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  confirmDim: {
+    backgroundColor: 'rgba(7,8,12,0.82)',
+  },
+  confirmCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  confirmGlass: {
+    width: '100%',
+    maxWidth: 390,
+    alignSelf: 'center',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    paddingHorizontal: 28,
+    paddingTop: 28,
+    paddingBottom: 22,
+    backgroundColor: 'rgba(12,13,18,0.88)',
+  },
+  confirmEyebrow: {
+    marginBottom: 12,
+    color: colors.textTer,
+  },
+  confirmHeading: {
+    fontFamily: fonts.hero,
+    fontSize: 34,
+    lineHeight: 38,
+    letterSpacing: -0.6,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  confirmBody: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    lineHeight: 23,
+    color: colors.textSec,
+    marginBottom: 22,
+  },
+  confirmDangerCta: {
+    width: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.danger,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.dangerDim,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    minHeight: 48,
   },
-  confirmCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 24,
-    padding: 28,
+  confirmDangerLabel: {
+    fontFamily: fonts.bodyS,
+    fontSize: 16,
+    letterSpacing: 0.2,
+    color: 'rgba(245,245,247,0.95)',
   },
-  confirmTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 22, color: colors.text, marginBottom: 8 },
-  confirmBody: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.textSec, lineHeight: 22, marginBottom: 24 },
-  sheetStat: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 28,
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
+  confirmSecondary: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 4,
+  },
+  confirmSecondaryLabel: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textTer,
+    letterSpacing: 0.2,
   },
 });

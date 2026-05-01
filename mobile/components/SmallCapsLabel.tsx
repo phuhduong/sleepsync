@@ -1,5 +1,5 @@
 import { Text, TextStyle, StyleProp } from 'react-native';
-import { colors } from '../theme/tokens';
+import { colors, fonts } from '../theme/tokens';
 
 type Props = {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ export function SmallCapsLabel({ children, style }: Props) {
     <Text
       style={[
         {
-          fontFamily: 'Inter_600SemiBold',
+          fontFamily: fonts.bodyM,
           fontSize: 11,
           letterSpacing: 1.1,
           textTransform: 'uppercase',

@@ -1,4 +1,4 @@
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { colors } from '../theme/tokens';
 
 type Props = {
@@ -26,9 +26,6 @@ export function SparkLine({ data, width = 320, height = 40 }: Props) {
   return (
     <Svg width={width} height={height}>
       <Path d={d} fill="none" stroke={colors.accent} strokeWidth={1.5} strokeLinecap="round" />
-      {pts.map(([x, y], i) => (
-        <Circle key={i} cx={x} cy={y} r={2.5} fill={colors.accent} opacity={0.7} />
-      ))}
     </Svg>
   );
 }

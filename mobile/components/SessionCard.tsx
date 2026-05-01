@@ -1,5 +1,6 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors } from '../theme/tokens';
+import Svg, { Path } from 'react-native-svg';
+import { colors, fonts } from '../theme/tokens';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import type { SessionRecord } from '../utils/profiles';
 
@@ -10,7 +11,7 @@ type Props = {
 
 export function SessionCard({ session, onPress }: Props) {
   const good = session.outcome === 'good';
-  const glyphColor = good ? colors.accent : 'rgba(245,245,247,0.3)';
+  const glyphColor = good ? colors.accent : 'rgba(245,245,247,0.4)';
   return (
     <Pressable onPress={onPress} style={styles.card}>
       <View style={{ flex: 1 }}>
@@ -24,7 +25,13 @@ export function SessionCard({ session, onPress }: Props) {
           { backgroundColor: good ? colors.accentDim : 'rgba(255,255,255,0.06)' },
         ]}
       >
-        <Text style={[styles.glyphText, { color: glyphColor }]}>{good ? '✓' : '–'}</Text>
+        <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+          {good ? (
+            <Path d="M3 7.5L6 10.5L11 4.5" stroke={glyphColor} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+          ) : (
+            <Path d="M3.5 7H10.5" stroke={glyphColor} strokeWidth={1.8} strokeLinecap="round" />
+          )}
+        </Svg>
       </View>
     </Pressable>
   );
@@ -42,8 +49,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  title: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: colors.text },
-  summary: { marginTop: 3, fontSize: 13, color: colors.textSec, lineHeight: 18, fontFamily: 'Inter_400Regular' },
+  title: { fontFamily: fonts.bodyM, fontSize: 18, color: colors.text },
+  summary: { marginTop: 3, fontSize: 14, color: colors.textSec, lineHeight: 20, fontFamily: fonts.body },
   glyph: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  glyphText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 });

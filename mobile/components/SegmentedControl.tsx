@@ -1,5 +1,5 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors } from '../theme/tokens';
+import { colors, fonts } from '../theme/tokens';
 
 type Option<T extends string> = { value: T; label: string };
 
@@ -34,7 +34,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
               style={[
                 styles.label,
                 {
-                  fontFamily: sel ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                  fontFamily: sel ? fonts.bodyM : fonts.body,
                   color: sel ? colors.text : colors.textSec,
                 },
               ]}

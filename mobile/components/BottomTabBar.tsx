@@ -1,9 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { colors } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
 
 type IconProps = { on: boolean };
 
@@ -20,8 +20,7 @@ const ProfileIcon = ({ on }: IconProps) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"
     stroke={on ? '#fff' : 'rgba(245,245,247,0.35)'} strokeWidth={1.6}
     strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M3 6h18M3 12h12M3 18h8" />
-    <Circle cx={19.5} cy={17.5} r={2.5} />
+    <Path d="M3 18 C7 18, 8 8, 12 8 C16 8, 17 14, 21 14" />
   </Svg>
 );
 
@@ -34,27 +33,16 @@ const HistoryIcon = ({ on }: IconProps) => (
   </Svg>
 );
 
-const SettingsIcon = ({ on }: IconProps) => (
-  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"
-    stroke={on ? '#fff' : 'rgba(245,245,247,0.35)'} strokeWidth={1.6}
-    strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx={12} cy={12} r={3} />
-    <Path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-  </Svg>
-);
-
 const ICONS: Record<string, (p: IconProps) => React.ReactElement> = {
   index:    HomeIcon,
   profile:  ProfileIcon,
   history:  HistoryIcon,
-  settings: SettingsIcon,
 };
 
 const LABELS: Record<string, string> = {
   index:    'Tonight',
   profile:  'Profile',
   history:  'History',
-  settings: 'Settings',
 };
 
 export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
@@ -83,7 +71,6 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
             }}
             style={styles.tab}
           >
-            {active && <View style={styles.activeMark} />}
             <Icon on={active} />
             <Text style={[styles.label, { color: active ? 'rgba(245,245,247,0.88)' : 'rgba(245,245,247,0.32)' }]}>
               {LABELS[route.name]}
@@ -108,18 +95,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: 4,
   },
-  activeMark: {
-    position: 'absolute',
-    top: -10,
-    width: 20,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.accent,
-    opacity: 0.7,
-  },
   label: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
+    fontFamily: fonts.bodyM,
+    fontSize: 11,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },

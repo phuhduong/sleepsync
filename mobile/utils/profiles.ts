@@ -31,7 +31,7 @@ export const profiles: Profile[] = [
     id: 'standard',
     name: 'Standard',
     recommended: true,
-    rationale: 'Chosen because you reported grogginess last session',
+    rationale: 'Balanced overnight curve — default when recent nights look typical',
     keyframes: [
       { t: 0,    dose: 0 },
       { t: 0.15, dose: 0,    label: 'Delayed' },

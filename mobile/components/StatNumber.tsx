@@ -1,5 +1,5 @@
 import { View, Text, TextStyle, ViewStyle, StyleProp } from 'react-native';
-import { colors } from '../theme/tokens';
+import { colors, fonts } from '../theme/tokens';
 import { SmallCapsLabel } from './SmallCapsLabel';
 
 type Props = {
@@ -9,16 +9,16 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function StatNumber({ value, label, size = 52, style }: Props) {
+export function StatNumber({ value, label, size = 44, style }: Props) {
   return (
     <View style={[{ alignItems: 'center' }, style]}>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
+          fontFamily: fonts.bodyS,
           fontSize: size,
           color: colors.text,
           lineHeight: size,
-          letterSpacing: -0.5,
+          letterSpacing: -0.35,
           fontVariant: ['tabular-nums'],
         } as TextStyle}
       >

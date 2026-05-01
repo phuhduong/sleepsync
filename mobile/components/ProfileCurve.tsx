@@ -1,4 +1,4 @@
-import Svg, { Defs, LinearGradient, Stop, Path, G, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Path, G, Circle } from 'react-native-svg';
 import { colors, hexToRgb } from '../theme/tokens';
 import type { Keyframe } from '../utils/profiles';
 
@@ -6,7 +6,6 @@ type Props = {
   keyframes: Keyframe[];
   width?: number;
   height?: number;
-  showLabels?: boolean;
   currentT?: number | null;
   mini?: boolean;
 };
@@ -17,11 +16,10 @@ export function ProfileCurve({
   keyframes,
   width = 330,
   height = 140,
-  showLabels = true,
   currentT = null,
   mini = false,
 }: Props) {
-  const pad = { top: 12, right: 12, bottom: showLabels ? 28 : 12, left: 12 };
+  const pad = { top: 12, right: 12, bottom: 12, left: 12 };
   const W = width - pad.left - pad.right;
   const H = height - pad.top - pad.bottom;
   const toX = (t: number) => pad.left + t * W;
@@ -37,19 +35,6 @@ export function ProfileCurve({
   }
   const fillD =
     d + ` L${pts[pts.length - 1][0]},${pad.top + H} L${pts[0][0]},${pad.top + H} Z`;
-
-  const labelKfs = keyframes.filter(kf => kf.label);
-  const labelNodes: { x: number; y: number; label: string }[] = [];
-  {
-    let prevX = -999;
-    for (const kf of labelKfs) {
-      const x = toX(kf.t);
-      const tooClose = x - prevX < 54;
-      const y = tooClose ? height - 18 : height - 4;
-      prevX = tooClose ? prevX : x;
-      labelNodes.push({ x, y, label: kf.label! });
-    }
-  }
 
   let curX = 0;
   let curY = 0;
@@ -89,21 +74,6 @@ export function ProfileCurve({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {showLabels &&
-        labelNodes.map((n, i) => (
-          <SvgText
-            key={i}
-            x={n.x}
-            y={n.y}
-            textAnchor="middle"
-            fill="rgba(245,245,247,0.35)"
-            fontSize={9}
-            fontWeight="600"
-            letterSpacing={0.7}
-          >
-            {n.label.toUpperCase()}
-          </SvgText>
-        ))}
       {currentT !== null && (
         <G>
           <Circle cx={curX} cy={curY} r={4} fill={colors.accent} />

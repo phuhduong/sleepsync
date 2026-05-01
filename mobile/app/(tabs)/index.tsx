@@ -1,15 +1,17 @@
-import { View, Text, StyleSheet, useWindowDimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { colors } from '../../theme/tokens';
-import { findProfile, history } from '../../utils/profiles';
+import { colors, fonts } from '../../theme/tokens';
+import { findProfile } from '../../utils/profiles';
+import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
 import { useAppState } from '../../state/AppState';
-import { BackgroundCanvas } from '../../components/BackgroundCanvas';
+import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
 import { SmallCapsLabel } from '../../components/SmallCapsLabel';
-import { ProfileCurve } from '../../components/ProfileCurve';
 import { PrimaryCTA } from '../../components/PrimaryCTA';
+import { StatNumber } from '../../components/StatNumber';
+import { ScheduleTimePickerModal } from '../../components/ScheduleTimePickerModal';
 
 const formatTime = (d: Date) =>
   d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -19,101 +21,125 @@ const formatDate = (d: Date) =>
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const { selectedProfileId, isFirstTime } = useAppState();
+  const {
+    selectedProfileId,
+    isFirstTime,
+    bedtimeMinutes,
+    setBedtimeMinutes,
+    wakeMinutes,
+    setWakeMinutes,
+  } = useAppState();
   const profile = findProfile(selectedProfileId);
 
   const [now, setNow] = useState(new Date());
+  const [pickerTarget, setPickerTarget] = useState<'bed' | 'wake' | null>(null);
+
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(id);
   }, []);
 
+  const planLabel = isFirstTime ? 'Welcome · First session' : "Tonight's plan";
+  const recommendedText = profile.recommended ? 'Recommended' : 'Custom';
+
   return (
-    <View style={{ flex: 1 }}>
-      <BackgroundCanvas width={width} height={height} />
-
-      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.brand}>sleepsync</Text>
-        <Text style={styles.timeStamp}>{formatTime(now)} · {formatDate(now)}</Text>
+    <MobileTabScreen auroraInteractive>
+      <View style={styles.column} pointerEvents="box-none">
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]} pointerEvents="box-none">
+        <Text style={styles.brand} pointerEvents="none">
+          sleepsync
+        </Text>
+        <Text style={styles.timeStamp} pointerEvents="none">
+          {formatTime(now)} · {formatDate(now)}
+        </Text>
       </View>
 
-      <View style={styles.hero}>
-        <View style={styles.pillWrap}>
-          {isFirstTime ? (
-            <View style={[styles.pill, { backgroundColor: 'rgba(123,92,240,0.18)', borderColor: 'rgba(123,92,240,0.3)' }]}>
-              <View style={[styles.pillDot, { backgroundColor: colors.accent }]} />
-              <SmallCapsLabel style={{ color: colors.accent }}>Welcome · First session</SmallCapsLabel>
-            </View>
-          ) : (
-            <View style={[styles.pill, { backgroundColor: 'rgba(255,255,255,0.07)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-              <View style={[styles.pillDot, { backgroundColor: 'rgba(245,245,247,0.4)' }]} />
-              <SmallCapsLabel>Tonight's plan</SmallCapsLabel>
-            </View>
-          )}
-        </View>
+      <View style={styles.hero} pointerEvents="box-none">
+        <SmallCapsLabel
+          style={[{ marginBottom: 14, pointerEvents: 'none' }, isFirstTime && { color: colors.accent }]}
+        >
+          {planLabel}
+        </SmallCapsLabel>
 
-        <Text style={styles.profileName}>{profile.name}</Text>
-        <Text style={styles.rationale}>{profile.rationale}</Text>
+        <Text style={styles.profileName} pointerEvents="none">
+          {profile.name}
+        </Text>
+        <Text style={styles.rationale} pointerEvents="none">
+          {profile.rationale}
+        </Text>
+
+        <Pressable
+          onPress={() => router.push('/profile' as never)}
+          style={styles.changeLink}
+          hitSlop={6}
+        >
+          <Text style={styles.changeLinkText}>
+            {recommendedText} <Text style={styles.changeLinkSep}>·</Text> <Text style={styles.changeLinkVerb}>Change profile</Text>
+          </Text>
+        </Pressable>
       </View>
 
-      <BlurView intensity={28} tint="dark" style={[styles.glassCard, { paddingBottom: 28 + insets.bottom }]}>
-        <View>
-          <View style={styles.timeRow}>
-            <View style={{ flex: 1 }}>
-              <SmallCapsLabel style={{ marginBottom: 4 }}>Bedtime</SmallCapsLabel>
-              <Text style={styles.timeValue}>10:30 PM</Text>
-            </View>
-            <View style={{ paddingHorizontal: 8 }}>
-              <ProfileCurve keyframes={profile.keyframes} width={120} height={44} showLabels={false} mini />
-            </View>
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <SmallCapsLabel style={{ marginBottom: 4 }}>Wake</SmallCapsLabel>
-              <Text style={styles.timeValue}>6:30 AM</Text>
-            </View>
-          </View>
-
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[styles.glassCard, { paddingBottom: 28 + insets.bottom }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.timeRow} pointerEvents="box-none">
           <Pressable
-            onPress={() => router.push('/profile' as never)}
-            style={styles.changeRow}
+            accessibilityRole="button"
+            accessibilityLabel={`Bedtime ${formatMinutesAsTime12h(bedtimeMinutes)}, tap to change`}
+            onPress={() => setPickerTarget('bed')}
+            style={({ pressed }) => [{ flex: 1, opacity: pressed ? 0.85 : 1 }]}
           >
-            <Text style={styles.recommendedText}>
-              {profile.recommended ? 'Recommended profile' : 'Custom profile'}
-            </Text>
-            <View style={styles.changeBtn}>
-              <Text style={styles.changeBtnText}>CHANGE</Text>
-            </View>
+            <StatNumber
+              value={formatMinutesAsTime12h(bedtimeMinutes)}
+              label="Bedtime"
+              size={28}
+              style={{ alignItems: 'flex-start' }}
+            />
           </Pressable>
-
-          {!isFirstTime && history.length > 0 && (
-            <View style={styles.lastNightRow}>
-              <SmallCapsLabel style={{ width: 72 }}>Last night</SmallCapsLabel>
-              <Text style={styles.summaryText}>{history[0].summary}</Text>
-              <View
-                style={[
-                  styles.outcomeGlyph,
-                  {
-                    backgroundColor: history[0].outcome === 'good' ? colors.accentDim : 'rgba(255,255,255,0.06)',
-                  },
-                ]}
-              >
-                <Text style={{
-                  color: history[0].outcome === 'good' ? colors.accent : colors.textSec,
-                  fontFamily: 'Inter_600SemiBold',
-                  fontSize: 11,
-                }}>{history[0].outcome === 'good' ? '✓' : '–'}</Text>
-              </View>
-            </View>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Wake ${formatMinutesAsTime12h(wakeMinutes)}, tap to change`}
+            onPress={() => setPickerTarget('wake')}
+            style={({ pressed }) => [{ flex: 1, opacity: pressed ? 0.85 : 1 }]}
+          >
+            <StatNumber
+              value={formatMinutesAsTime12h(wakeMinutes)}
+              label="Wake"
+              size={28}
+              style={{ alignItems: 'flex-end' }}
+            />
+          </Pressable>
         </View>
 
         <PrimaryCTA label="Apply Patch Tonight" onPress={() => router.push('/live' as never)} />
       </BlurView>
-    </View>
+
+      <ScheduleTimePickerModal
+        target={pickerTarget}
+        bedtimeMinutes={bedtimeMinutes}
+        wakeMinutes={wakeMinutes}
+        onDismiss={() => setPickerTarget(null)}
+        onApply={(which, mins) => {
+          if (which === 'bed') setBedtimeMinutes(mins);
+          else setWakeMinutes(mins);
+        }}
+      />
+      </View>
+    </MobileTabScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  column: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MOBILE_COLUMN_MAX,
+    alignSelf: 'center',
+    zIndex: 1,
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -122,14 +148,14 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   brand: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 17,
+    fontFamily: fonts.bodyM,
+    fontSize: 18,
     letterSpacing: -0.3,
     color: 'rgba(245,245,247,0.92)',
   },
   timeStamp: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontFamily: fonts.body,
+    fontSize: 14,
     color: 'rgba(245,245,247,0.55)',
     fontVariant: ['tabular-nums'],
   },
@@ -141,37 +167,37 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     zIndex: 2,
   },
-  pillWrap: { marginBottom: 14, flexDirection: 'row' },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  pillDot: { width: 5, height: 5, borderRadius: 2.5 },
   profileName: {
-    fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 54,
+    fontFamily: fonts.hero,
+    fontSize: 56,
     color: '#F5F5F7',
     letterSpacing: -0.5,
     marginBottom: 10,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 24,
-    textShadowOffset: { width: 0, height: 2 },
   },
   rationale: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: fonts.body,
     fontSize: 14,
     color: 'rgba(245,245,247,0.62)',
     lineHeight: 22,
     maxWidth: 310,
   },
+  changeLink: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+  },
+  changeLinkText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textSec,
+  },
+  changeLinkSep: {
+    color: colors.textTer,
+  },
+  changeLinkVerb: {
+    color: colors.text,
+    fontFamily: fonts.bodyM,
+  },
   glassCard: {
-    flex: 1,
-    justifyContent: 'space-between',
     backgroundColor: 'rgba(12,13,18,0.82)',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -180,47 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 28,
     overflow: 'hidden',
+    zIndex: 2,
   },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
-  timeValue: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 24,
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-  },
-  changeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
-    paddingBottom: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  recommendedText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.textSec },
-  changeBtn: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  changeBtnText: {
-    fontFamily: 'Inter_600SemiBold',
-    color: colors.textSec,
-    fontSize: 11,
-    letterSpacing: 0.7,
-  },
-  lastNightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 18,
-    paddingBottom: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  summaryText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.textSec, lineHeight: 18 },
-  outcomeGlyph: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
 });

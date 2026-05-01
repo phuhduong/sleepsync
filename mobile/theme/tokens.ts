@@ -12,12 +12,24 @@ export const colors = {
   accentDim: 'rgba(123,92,240,0.12)',
   accentMid: 'rgba(123,92,240,0.28)',
   accentGlow:'rgba(123,92,240,0.5)',
+  danger:    '#E05656',
+  dangerDim: 'rgba(224,86,86,0.55)',
 } as const;
 
 export const fonts = {
-  body:  'Inter_400Regular',
-  bodyS: 'Inter_600SemiBold',
-  hero:  'DMSerifDisplay_400Regular',
+  body:  'OpenSans_400Regular',
+  bodyM: 'OpenSans_500Medium',
+  bodyS: 'OpenSans_600SemiBold',
+  hero:  'CormorantGaramond_600SemiBold',
+} as const;
+
+export const fontSize = {
+  display: 56,
+  hero:    44,
+  heading: 28,
+  body:    18,
+  caption: 14,
+  micro:   11,
 } as const;
 
 export const hexToRgb = (hex: string): [number, number, number] => {
