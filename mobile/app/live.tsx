@@ -315,6 +315,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 12,
   },
+  timeText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textSec,
+    fontVariant: ['tabular-nums'],
+  },
   timelineAnchorValue: {
     fontFamily: fonts.bodyS,
     fontSize: 15,
