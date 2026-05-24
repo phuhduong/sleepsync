@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
 import { BottomTabBar } from '../../components/BottomTabBar';
-import { colors } from '../../theme/tokens';
+import { useCircadianColors } from '../../theme/CircadianThemeProvider';
 
 export default function TabsLayout() {
+  const colors = useCircadianColors();
   return (
     <Tabs
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}

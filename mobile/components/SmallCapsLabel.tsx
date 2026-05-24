@@ -1,5 +1,6 @@
 import { Text, TextStyle, StyleProp } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   children: React.ReactNode;
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export function SmallCapsLabel({ children, style }: Props) {
+  const colors = useCircadianColors();
   return (
     <Text
       style={[

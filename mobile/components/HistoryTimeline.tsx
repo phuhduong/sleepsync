@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import type { SessionRecord } from '../utils/profiles';
 
@@ -24,6 +25,7 @@ function TimelineRow({
   session: SessionRecord;
   onPress: () => void;
 }) {
+  const colors = useCircadianColors();
   const good = session.outcome === 'good';
 
   return (
@@ -34,13 +36,18 @@ function TimelineRow({
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <View style={styles.rail}>
-        <View style={styles.node} />
+        <View
+          style={[
+            styles.node,
+            { borderColor: colors.borderMid, backgroundColor: colors.surface },
+          ]}
+        />
       </View>
 
       <View style={styles.body}>
         <SmallCapsLabel style={{ marginBottom: 5 }}>{session.date}</SmallCapsLabel>
-        <Text style={styles.profile}>{session.profile}</Text>
-        <Text style={styles.summary} numberOfLines={2}>
+        <Text style={[styles.profile, { color: colors.text }]}>{session.profile}</Text>
+        <Text style={[styles.summary, { color: colors.textSec }]} numberOfLines={2}>
           {session.summary}
         </Text>
       </View>
@@ -120,8 +127,6 @@ const styles = StyleSheet.create({
     height: NODE + 6,
     borderRadius: (NODE + 6) / 2,
     borderWidth: 2,
-    borderColor: colors.borderMid,
-    backgroundColor: colors.surface,
     zIndex: 2,
   },
   body: {
@@ -133,14 +138,12 @@ const styles = StyleSheet.create({
   profile: {
     fontFamily: fonts.bodyM,
     fontSize: 17,
-    color: colors.text,
     letterSpacing: -0.2,
     marginBottom: 5,
   },
   summary: {
     fontFamily: fonts.body,
     fontSize: 14,
-    color: colors.textSec,
     lineHeight: 20,
   },
   chevronWrap: {

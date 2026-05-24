@@ -17,7 +17,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { colors, fonts } from '../../theme/tokens';
+import { fonts } from '../../theme/tokens';
+import { useCircadianColors } from '../../theme/CircadianThemeProvider';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
 import { useAppState } from '../../state/AppState';
 import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
@@ -34,6 +36,110 @@ const SPRING = { damping: 22, stiffness: 220, mass: 0.85 };
 const EYEBROW = 'Tonight';
 
 export default function ProfileSelectionScreen() {
+  const colors = useCircadianColors();
+  const styles = useThemedStyles((c) => ({
+    gestureRoot: {
+      flex: 1,
+    },
+    column: {
+      flex: 1,
+      width: '100%',
+      maxWidth: MOBILE_COLUMN_MAX,
+      alignSelf: 'center',
+      zIndex: 1,
+    },
+    eyebrow: {
+      marginBottom: 10,
+    },
+    screenTitle: {
+      fontFamily: fonts.hero,
+      fontSize: 44,
+      color: c.text,
+      letterSpacing: -0.8,
+      marginBottom: 4,
+    },
+    carouselGlass: {
+      marginTop: 20,
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.09)',
+      backgroundColor: 'rgba(12,13,18,0.82)',
+    },
+    carouselGlassInner: {
+      paddingHorizontal: 16,
+      paddingTop: 18,
+      paddingBottom: 18,
+    },
+    carouselClip: {
+      overflow: 'hidden',
+      alignSelf: 'center',
+    },
+    slide: {
+      paddingHorizontal: 4,
+    },
+    recBadge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: c.accentDim,
+      borderWidth: 1,
+      borderColor: c.accentMid,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginBottom: 10,
+    },
+    recDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: c.accent },
+    profileName: {
+      fontFamily: fonts.hero,
+      fontSize: 44,
+      color: c.text,
+      letterSpacing: -0.8,
+      marginBottom: 8,
+    },
+    rationale: {
+      marginTop: 4,
+      fontSize: 14,
+      color: c.textSec,
+      fontFamily: fonts.body,
+      lineHeight: 22,
+      marginBottom: 18,
+    },
+    curveWrap: {
+      paddingTop: 8,
+    },
+    dotIndicators: {
+      flexDirection: 'row',
+      gap: 6,
+      justifyContent: 'center',
+      marginTop: 14,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 24,
+      paddingTop: 20,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    pinnedGlass: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 2,
+      paddingHorizontal: 24,
+      paddingTop: 28,
+      overflow: 'hidden',
+      backgroundColor: 'rgba(12,13,18,0.82)',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.09)',
+    },
+  }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -219,107 +325,3 @@ export default function ProfileSelectionScreen() {
     </MobileTabScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  gestureRoot: {
-    flex: 1,
-  },
-  column: {
-    flex: 1,
-    width: '100%',
-    maxWidth: MOBILE_COLUMN_MAX,
-    alignSelf: 'center',
-    zIndex: 1,
-  },
-  eyebrow: {
-    marginBottom: 10,
-  },
-  screenTitle: {
-    fontFamily: fonts.hero,
-    fontSize: 44,
-    color: colors.text,
-    letterSpacing: -0.8,
-    marginBottom: 4,
-  },
-  carouselGlass: {
-    marginTop: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(12,13,18,0.82)',
-  },
-  carouselGlassInner: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 18,
-  },
-  carouselClip: {
-    overflow: 'hidden',
-    alignSelf: 'center',
-  },
-  slide: {
-    paddingHorizontal: 4,
-  },
-  recBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.accentDim,
-    borderWidth: 1,
-    borderColor: colors.accentMid,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 10,
-  },
-  recDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent },
-  profileName: {
-    fontFamily: fonts.hero,
-    fontSize: 44,
-    color: colors.text,
-    letterSpacing: -0.8,
-    marginBottom: 8,
-  },
-  rationale: {
-    marginTop: 4,
-    fontSize: 14,
-    color: colors.textSec,
-    fontFamily: fonts.body,
-    lineHeight: 22,
-    marginBottom: 18,
-  },
-  curveWrap: {
-    paddingTop: 8,
-  },
-  dotIndicators: {
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    marginTop: 14,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    paddingTop: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  pinnedGlass: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(12,13,18,0.82)',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.09)',
-  },
-});

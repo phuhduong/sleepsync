@@ -1,5 +1,6 @@
 import { View, Text, TextStyle, ViewStyle, StyleProp } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function StatNumber({ value, label, size = 44, style }: Props) {
+  const colors = useCircadianColors();
   return (
     <View style={[{ alignItems: 'center' }, style]}>
       <Text

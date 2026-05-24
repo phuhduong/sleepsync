@@ -1,5 +1,5 @@
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   width: number;
@@ -7,6 +7,7 @@ type Props = {
 };
 
 export function LiveAmbient({ width, height }: Props) {
+  const colors = useCircadianColors();
   return (
     <Svg width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }}>
       <Defs>

@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Canvas, Fill, Shader, vec } from '@shopify/react-native-skia';
-import type { BackgroundCanvasProps } from './backgroundCanvasTypes';
+import type { BackgroundCanvasProps, SkyUniforms } from './backgroundCanvasTypes';
+import { CIRCADIAN_ANCHORS } from '../theme/circadianPalettes';
 import { compileAuroraShader } from './auroraShader';
+
+function skyRgbCss(rgb: [number, number, number]): string {
+  const r = Math.round(rgb[0] * 255);
+  const g = Math.round(rgb[1] * 255);
+  const b = Math.round(rgb[2] * 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+function skyShaderUniforms(sky: SkyUniforms) {
+  const [zr, zg, zb] = sky.zenith;
+  const [hr, hg, hb] = sky.horizon;
+  const [cr, cg, cb] = sky.cloud;
+  return {
+    uZenithR: zr,
+    uZenithG: zg,
+    uZenithB: zb,
+    uHorizonR: hr,
+    uHorizonG: hg,
+    uHorizonB: hb,
+    uCloudR: cr,
+    uCloudG: cg,
+    uCloudB: cb,
+  };
+}
 
 const TWO_PI = Math.PI * 2;
 const BASE_ORBIT_MS = 17500;
@@ -11,12 +36,15 @@ const RAD_PER_MS = TWO_PI / BASE_ORBIT_MS;
 /** Props can be 0 before first layout — fall back so Skia canvas is never a tiny square. */
 const MIN_DIM = 32;
 
+const DEFAULT_SKY: SkyUniforms = CIRCADIAN_ANCHORS.night.sky;
+
 export default function AuroraSkiaCanvas({
   width,
   height,
   grain = true,
   swipeOffsetX = 0,
   swipeOffsetY = 0,
+  sky = DEFAULT_SKY,
 }: BackgroundCanvasProps) {
   const win = useWindowDimensions();
   const screen = Dimensions.get('window');
@@ -56,34 +84,38 @@ export default function AuroraSkiaCanvas({
     return () => globalThis.cancelAnimationFrame(raf);
   }, []);
 
+  const skyUniforms = skyShaderUniforms(sky);
+  const underlay = skyRgbCss(sky.horizon);
+
   if (!runtimeEffect) {
-    return <View style={[styles.fallback, { width: W, height: H }]} />;
+    return (
+      <View
+        style={[styles.fallback, { width: W, height: H, backgroundColor: underlay }]}
+        pointerEvents="none"
+      />
+    );
   }
 
   return (
-    <Canvas
-      style={{ width: W, height: H }}
-      pointerEvents="none"
-      opaque
-      colorSpace="srgb"
-    >
-      <Fill>
-        <Shader
-          source={runtimeEffect}
-          uniforms={{
-            uResolution: vec(W, H),
-            uTime: phase,
-            uSwipe: vec(swipeOffsetX, swipeOffsetY),
-            uGrain: grain ? 1.0 : 0.0,
-          }}
-        />
-      </Fill>
-    </Canvas>
+    <View style={{ width: W, height: H, backgroundColor: underlay }} pointerEvents="none">
+      <Canvas style={{ width: W, height: H }} pointerEvents="none" colorSpace="srgb">
+        <Fill>
+          <Shader
+            source={runtimeEffect}
+            uniforms={{
+              uResolution: vec(W, H),
+              uTime: phase,
+              uSwipe: vec(swipeOffsetX, swipeOffsetY),
+              uGrain: grain ? 1.0 : 0.0,
+              ...skyUniforms,
+            }}
+          />
+        </Fill>
+      </Canvas>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fallback: {
-    backgroundColor: '#090A10',
-  },
+  fallback: {},
 });

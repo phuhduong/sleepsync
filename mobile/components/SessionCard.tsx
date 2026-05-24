@@ -1,6 +1,7 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import type { SessionRecord } from '../utils/profiles';
 
@@ -10,14 +11,18 @@ type Props = {
 };
 
 export function SessionCard({ session, onPress }: Props) {
+  const colors = useCircadianColors();
   const good = session.outcome === 'good';
   const glyphColor = good ? colors.accent : 'rgba(245,245,247,0.4)';
   return (
-    <Pressable onPress={onPress} style={styles.card}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
       <View style={{ flex: 1 }}>
         <SmallCapsLabel style={{ marginBottom: 4 }}>{session.date}</SmallCapsLabel>
-        <Text style={styles.title}>{session.profile}</Text>
-        <Text style={styles.summary}>{session.summary}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{session.profile}</Text>
+        <Text style={[styles.summary, { color: colors.textSec }]}>{session.summary}</Text>
       </View>
       <View
         style={[
@@ -39,9 +44,7 @@ export function SessionCard({ session, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 18,
     padding: 16,
     paddingHorizontal: 20,
@@ -49,7 +52,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  title: { fontFamily: fonts.bodyM, fontSize: 18, color: colors.text },
-  summary: { marginTop: 3, fontSize: 14, color: colors.textSec, lineHeight: 20, fontFamily: fonts.body },
+  title: { fontFamily: fonts.bodyM, fontSize: 18 },
+  summary: { marginTop: 3, fontSize: 14, lineHeight: 20, fontFamily: fonts.body },
   glyph: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 });

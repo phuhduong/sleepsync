@@ -10,6 +10,16 @@ uniform vec2 uResolution;
 uniform float uTime;
 uniform vec2 uSwipe;
 uniform float uGrain;
+// Separate floats — vec3 uniforms are unreliable across Skia / CanvasKit targets.
+uniform float uZenithR;
+uniform float uZenithG;
+uniform float uZenithB;
+uniform float uHorizonR;
+uniform float uHorizonG;
+uniform float uHorizonB;
+uniform float uCloudR;
+uniform float uCloudG;
+uniform float uCloudB;
 
 // Same linear transform as mat2(1.6, 1.2, -1.2, 1.6) column vectors (explicit for SkSL portability).
 vec2 mMul(vec2 v) {
@@ -61,9 +71,8 @@ vec4 main(vec2 fragCoord) {
   float cloudalpha = 1.15;
   float skytint = 0.28;
 
-  // Zenith → horizon (night): deep blue-violet → slightly lighter band low in frame.
-  vec3 skycolour1 = vec3(0.022, 0.028, 0.055);
-  vec3 skycolour2 = vec3(0.048, 0.058, 0.105);
+  vec3 skycolour1 = vec3(uZenithR, uZenithG, uZenithB);
+  vec3 skycolour2 = vec3(uHorizonR, uHorizonG, uHorizonB);
 
   vec2 uvAspect = p * vec2(res.x / res.y, 1.0);
   uvAspect += swipeN * vec2(0.35, 0.28);
@@ -124,9 +133,8 @@ vec4 main(vec2 fragCoord) {
 
   c += c1;
 
-  // Muted moonlit clouds (no daytime cream).
   vec3 cloudcolour =
-      vec3(0.14, 0.11, 0.22) * clamp(clouddark + cloudlight * c, 0.0, 1.0);
+      vec3(uCloudR, uCloudG, uCloudB) * clamp(clouddark + cloudlight * c, 0.0, 1.0);
 
   vec3 skycolour = mix(skycolour2, skycolour1, p.y);
 

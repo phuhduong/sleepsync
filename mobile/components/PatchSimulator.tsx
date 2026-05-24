@@ -1,30 +1,76 @@
 import { Pressable, View, Animated, Easing, ViewStyle, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
-import { useEffect, useId, useRef } from 'react';
-import { colors } from '../theme/tokens';
+import { useEffect, useId, useMemo, useRef } from 'react';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
+import { hexToRgb, rgba } from '../theme/colorUtils';
 
-/** Flat gel when delivery is off — all membrane stops blend here (no fake glow during delayed start). */
-const MEMBRANE_IDLE: [number, number, number] = [22, 18, 38];
-
-const MEMBRANE_VIVID_STOPS: readonly [number, number, number][] = [
-  [148, 118, 228],
-  [118, 88, 204],
-  [98, 72, 188],
-  [68, 48, 158],
-  [20, 16, 38],
-];
+type Rgb = [number, number, number];
 
 function clamp01(x: number): number {
   return Math.min(1, Math.max(0, x));
 }
 
-function mixRgb(idle: [number, number, number], vivid: [number, number, number], strength: number): string {
-  const t = clamp01(strength);
-  const r = Math.round(idle[0] + (vivid[0] - idle[0]) * t);
-  const g = Math.round(idle[1] + (vivid[1] - idle[1]) * t);
-  const b = Math.round(idle[2] + (vivid[2] - idle[2]) * t);
+function mixRgbTuple(a: Rgb, b: Rgb, t: number): Rgb {
+  const k = clamp01(t);
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * k),
+    Math.round(a[1] + (b[1] - a[1]) * k),
+    Math.round(a[2] + (b[2] - a[2]) * k),
+  ];
+}
+
+function mixRgb(idle: Rgb, vivid: Rgb, strength: number): string {
+  const [r, g, b] = mixRgbTuple(idle, vivid, strength);
   return `rgb(${r},${g},${b})`;
+}
+
+function lightenRgb(rgb: Rgb, amount: number): Rgb {
+  const t = clamp01(amount);
+  return mixRgbTuple(rgb, [255, 255, 255], t);
+}
+
+/** Membrane + shell colors derived from the active circadian palette. */
+function usePatchPalette(colors: ReturnType<typeof useCircadianColors>) {
+  return useMemo(() => {
+    const accent = hexToRgb(colors.accent);
+    const bg = hexToRgb(colors.bg);
+    const surface = hexToRgb(colors.surface);
+
+    const membraneIdle = mixRgbTuple(bg, surface, 0.42);
+
+    const membraneVividStops: Rgb[] = [
+      lightenRgb(accent, 0.38),
+      lightenRgb(accent, 0.18),
+      accent,
+      mixRgbTuple(accent, bg, 0.35),
+      mixRgbTuple(bg, accent, 0.22),
+    ];
+
+    const patchBgColors = [
+      rgba(colors.surface2, 0.97),
+      rgba(colors.bg, 0.99),
+      rgba(colors.surface, 0.97),
+    ] as const;
+
+    const shellVignette = [
+      'rgba(0,0,0,0)',
+      rgba(colors.bg, 0.22),
+      rgba(colors.bg, 0.38),
+    ] as const;
+
+    const adhesiveRgb = accent;
+    const membraneHighlight = lightenRgb(accent, 0.62);
+
+    return {
+      membraneIdle,
+      membraneVividStops,
+      patchBgColors,
+      shellVignette,
+      adhesiveRgb,
+      membraneHighlight,
+    };
+  }, [colors.accent, colors.bg, colors.surface, colors.surface2]);
 }
 
 type Props = {
@@ -35,6 +81,8 @@ type Props = {
 };
 
 export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 }: Props) {
+  const colors = useCircadianColors();
+  const palette = usePatchPalette(colors);
   const gradId = useId().replace(/:/g, '');
   const d2 = dose * dose;
   /** Tracks delivery: invisible at delayed start / end of night, strongest mid-session */
@@ -84,14 +132,12 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
     elevation: Math.round(radius),
   });
 
-  const patchBgColors = [
-    'rgba(34,28,60,0.97)',
-    'rgba(18,14,38,0.99)',
-    'rgba(28,22,52,0.97)',
-  ] as const;
-
-  const membraneStroke = `rgba(210,195,255,${(0.04 + d2 * 0.22) * membraneGlow})`;
-  const adhesiveStroke = `rgba(148,120,235,${0.06 + d2 * 0.32})`;
+  const [msR, msG, msB] = palette.membraneHighlight;
+  const membraneStroke = `rgba(${msR},${msG},${msB},${(0.04 + d2 * 0.22) * membraneGlow})`;
+  const [asR, asG, asB] = palette.adhesiveRgb;
+  const adhesiveStroke = `rgba(${asR},${asG},${asB},${0.06 + d2 * 0.32})`;
+  const sheenA = 0.028 * membraneGlow;
+  const [shR, shG, shB] = lightenRgb(hexToRgb(colors.accent), 0.75);
 
   return (
     <View style={{ width: haloSize, height: haloSize, alignItems: 'center', justifyContent: 'center' }}>
@@ -139,7 +185,7 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
       >
         <View style={{ width: '100%', height: '100%', borderRadius: br, overflow: 'hidden' }}>
         <LinearGradient
-          colors={patchBgColors}
+          colors={palette.patchBgColors}
           locations={[0, 0.52, 1]}
           start={{ x: 0.16, y: 0.05 }}
           end={{ x: 0.84, y: 0.95 }}
@@ -148,7 +194,7 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
           {/* Shell vignette — depth without competing with the membrane */}
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(0,0,0,0)', 'rgba(5,4,14,0.22)', 'rgba(2,2,10,0.38)']}
+            colors={palette.shellVignette}
             locations={[0, 0.72, 1]}
             start={{ x: 0.5, y: 0.2 }}
             end={{ x: 0.5, y: 1 }}
@@ -190,11 +236,11 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
               <Defs>
                 {/* Fully opaque stops — varying stopOpacity let the halo SVG behind bleed through and read as a ring */}
                 <RadialGradient id={`membrane-${gradId}`} cx="50%" cy="50%" rx="88%" ry="88%" fx="50%" fy="50%">
-                  <Stop offset="0%" stopColor={mixRgb(MEMBRANE_IDLE, MEMBRANE_VIVID_STOPS[0], membraneGlow)} />
-                  <Stop offset="26%" stopColor={mixRgb(MEMBRANE_IDLE, MEMBRANE_VIVID_STOPS[1], membraneGlow)} />
-                  <Stop offset="52%" stopColor={mixRgb(MEMBRANE_IDLE, MEMBRANE_VIVID_STOPS[2], membraneGlow)} />
-                  <Stop offset="76%" stopColor={mixRgb(MEMBRANE_IDLE, MEMBRANE_VIVID_STOPS[3], membraneGlow)} />
-                  <Stop offset="100%" stopColor={mixRgb(MEMBRANE_IDLE, MEMBRANE_VIVID_STOPS[4], membraneGlow)} />
+                  <Stop offset="0%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[0], membraneGlow)} />
+                  <Stop offset="26%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[1], membraneGlow)} />
+                  <Stop offset="52%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[2], membraneGlow)} />
+                  <Stop offset="76%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[3], membraneGlow)} />
+                  <Stop offset="100%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[4], membraneGlow)} />
                 </RadialGradient>
               </Defs>
               <Rect
@@ -212,7 +258,7 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
             {/* Hairline sheen only — full-area overlays were shading the center and reinforcing a ring */}
             <LinearGradient
               pointerEvents="none"
-              colors={[`rgba(245,240,255,${0.028 * membraneGlow})`, 'rgba(255,255,255,0)']}
+              colors={[`rgba(${shR},${shG},${shB},${sheenA})`, 'rgba(255,255,255,0)']}
               locations={[0, 0.35]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.52, y: 0.28 }}

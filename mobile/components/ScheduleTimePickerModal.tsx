@@ -5,7 +5,9 @@ import { BlurView } from 'expo-blur';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import {
   clampMinutes,
   clockMinutesFromDate,
@@ -32,6 +34,82 @@ export function ScheduleTimePickerModal({
   onDismiss,
   onApply,
 }: Props) {
+  const colors = useCircadianColors();
+  const styles = useThemedStyles((c) => ({
+    modalGestureRoot: {
+      flex: 1,
+    },
+    modalRoot: {
+      flex: 1,
+      backgroundColor: 'rgba(7,8,12,0.82)',
+    },
+    modalBackdropFlex: {
+      flex: 1,
+      width: '100%',
+    },
+    timeSheetGlass: {
+      paddingHorizontal: 24,
+      paddingTop: 22,
+      overflow: 'hidden',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.09)',
+      backgroundColor: 'rgba(12,13,18,0.82)',
+    },
+    timeSheetEyebrow: {
+      marginBottom: 14,
+      color: c.textTer,
+    },
+    timeWheel: {
+      alignSelf: 'stretch',
+      height: 216,
+      width: '100%',
+    },
+    webPickWrap: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 16,
+    },
+    webPickValue: {
+      fontFamily: fonts.bodyS,
+      fontSize: 32,
+      color: c.text,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+    },
+    webPickRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    webPickBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.09)',
+    },
+    webPickBtnText: {
+      fontFamily: fonts.bodyM,
+      fontSize: 14,
+      color: c.text,
+    },
+    timeDone: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      marginTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: 'rgba(255,255,255,0.09)',
+    },
+    timeDoneText: {
+      fontFamily: fonts.bodyM,
+      fontSize: 17,
+      color: c.accent,
+    },
+  }));
   const insets = useSafeAreaInsets();
   const [pickerDate, setPickerDate] = useState(() => dateFromClockMinutes(DEFAULT_BEDTIME_MINUTES));
 
@@ -136,79 +214,3 @@ export function ScheduleTimePickerModal({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  modalGestureRoot: {
-    flex: 1,
-  },
-  modalRoot: {
-    flex: 1,
-    backgroundColor: 'rgba(7,8,12,0.82)',
-  },
-  modalBackdropFlex: {
-    flex: 1,
-    width: '100%',
-  },
-  timeSheetGlass: {
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    overflow: 'hidden',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(12,13,18,0.82)',
-  },
-  timeSheetEyebrow: {
-    marginBottom: 14,
-    color: colors.textTer,
-  },
-  timeWheel: {
-    alignSelf: 'stretch',
-    height: 216,
-    width: '100%',
-  },
-  webPickWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 16,
-  },
-  webPickValue: {
-    fontFamily: fonts.bodyS,
-    fontSize: 32,
-    color: colors.text,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
-  webPickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  webPickBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-  },
-  webPickBtnText: {
-    fontFamily: fonts.bodyM,
-    fontSize: 14,
-    color: colors.text,
-  },
-  timeDone: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.09)',
-  },
-  timeDoneText: {
-    fontFamily: fonts.bodyM,
-    fontSize: 17,
-    color: colors.accent,
-  },
-});

@@ -1,11 +1,22 @@
 import { Animated, Easing, View, Text, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useAppNow, useCircadianColors } from '../theme/CircadianThemeProvider';
+import { formatDateAsClock } from '../theme/simulatedTime';
 import { findProfile, type Phase } from '../utils/profiles';
 import { formatMinutesAsTime12h, clockMinutesFromDate } from '../utils/sleepSchedule';
+import type { SleepWindow } from '../utils/sleepWindow';
+import {
+  formatDurationMinutes,
+  isSessionComplete,
+  minutesSinceBed,
+  minutesUntilBed,
+  profileTimelineT,
+  resolveActiveSleepWindow,
+} from '../utils/sleepWindow';
 import { useAppState } from '../state/AppState';
 import { PatchSimulator } from '../components/PatchSimulator';
 import { SmallCapsLabel } from '../components/SmallCapsLabel';
@@ -14,58 +25,197 @@ import { ProfileCurve } from '../components/ProfileCurve';
 import { BottomSheet } from '../components/BottomSheet';
 import { LiveAmbient } from '../components/LiveAmbient';
 import { StatNumber } from '../components/StatNumber';
-import { SegmentedControl } from '../components/SegmentedControl';
-
-const SESSION_HOURS = 8;
-const SESSION_MS = SESSION_HOURS * 60 * 60 * 1000;
-
-/** Target wall-clock length for a full profile run in demo mode (pitch-friendly). */
-const DEMO_FULL_SESSION_SECONDS = 60;
-/** Speed multiplier so a full virtual session completes in DEMO_FULL_SESSION_SECONDS of wall clock. */
-const DEMO_SPEED_MULTIPLIER = SESSION_MS / (DEMO_FULL_SESSION_SECONDS * 1000);
 const HOLD_CANCEL_MS = 900;
 const HOLD_BAR_WIDTH = 280;
 
 export default function LiveScreen() {
+  const colors = useCircadianColors();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        column: {
+          flex: 1,
+          width: '100%',
+          maxWidth: 390,
+          alignSelf: 'center',
+        },
+        topBar: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 24,
+          paddingBottom: 12,
+        },
+        timeText: {
+          fontFamily: fonts.body,
+          fontSize: 14,
+          color: colors.textSec,
+          fontVariant: ['tabular-nums'],
+        },
+        timelineAnchorValue: {
+          fontFamily: fonts.bodyS,
+          fontSize: 15,
+          color: colors.text,
+          fontVariant: ['tabular-nums'],
+        },
+        heroWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 0 },
+        phaseBlock: {
+          alignItems: 'center',
+          marginTop: 32,
+          minHeight: 110,
+          alignSelf: 'stretch',
+        },
+        phaseLayer: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        },
+        phaseName: {
+          fontFamily: fonts.hero,
+          fontSize: 44,
+          color: colors.text,
+          letterSpacing: -0.5,
+        },
+        nextPhase: { marginTop: 8, fontSize: 14, color: colors.textSec, fontFamily: fonts.body },
+        timelineWrap: { paddingHorizontal: 24 },
+        holdCancelPress: {
+          marginTop: 20,
+          alignItems: 'center',
+          alignSelf: 'stretch',
+          paddingVertical: 12,
+        },
+        holdTrack: {
+          width: HOLD_BAR_WIDTH,
+          height: 3,
+          borderRadius: 2,
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          overflow: 'hidden',
+          marginBottom: 10,
+        },
+        holdFill: {
+          height: '100%',
+          borderRadius: 2,
+          backgroundColor: colors.dangerDim,
+        },
+        cancelHint: {
+          fontFamily: fonts.bodyM,
+          color: colors.dangerDim,
+          fontSize: 11,
+          letterSpacing: 0.7,
+        },
+        confirmRoot: {
+          flex: 1,
+        },
+        confirmDim: {
+          backgroundColor: 'rgba(7,8,12,0.82)',
+        },
+        confirmCenter: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+        },
+        confirmGlass: {
+          width: '100%',
+          maxWidth: 390,
+          alignSelf: 'center',
+          borderRadius: 24,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.09)',
+          paddingHorizontal: 28,
+          paddingTop: 28,
+          paddingBottom: 22,
+          backgroundColor: 'rgba(12,13,18,0.88)',
+        },
+        confirmEyebrow: {
+          marginBottom: 12,
+          color: colors.textTer,
+        },
+        confirmHeading: {
+          fontFamily: fonts.hero,
+          fontSize: 34,
+          lineHeight: 38,
+          letterSpacing: -0.6,
+          color: colors.text,
+          marginBottom: 12,
+        },
+        confirmBody: {
+          fontFamily: fonts.body,
+          fontSize: 15,
+          lineHeight: 23,
+          color: colors.textSec,
+          marginBottom: 22,
+        },
+        confirmDangerCta: {
+          width: '100%',
+          borderRadius: 999,
+          backgroundColor: colors.danger,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.dangerDim,
+          paddingVertical: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 48,
+        },
+        confirmDangerLabel: {
+          fontFamily: fonts.bodyS,
+          fontSize: 16,
+          letterSpacing: 0.2,
+          color: 'rgba(245,245,247,0.95)',
+        },
+        confirmSecondary: {
+          alignItems: 'center',
+          paddingVertical: 16,
+          marginTop: 4,
+        },
+        confirmSecondaryLabel: {
+          fontFamily: fonts.body,
+          fontSize: 14,
+          color: colors.textTer,
+          letterSpacing: 0.2,
+        },
+      }),
+    [colors],
+  );
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { selectedProfileId, wakeMinutes } = useAppState();
+  const { selectedProfileId, bedtimeMinutes, wakeMinutes } = useAppState();
   const profile = findProfile(selectedProfileId);
   const colWidth = Math.min(width, 390);
+  const appNow = useAppNow();
 
-  /** Wall-clock moment this overnight run began — session timeline is anchored here, not habitual bedtime. */
-  const [sessionStartedAt] = useState(() => new Date());
+  /** Latch bed→wake for this visit so passing wake does not jump to "next night" (t → 0 loop). */
+  const sleepWindowLatch = useRef<SleepWindow | null>(null);
+  if (sleepWindowLatch.current === null) {
+    sleepWindowLatch.current = resolveActiveSleepWindow(
+      appNow,
+      bedtimeMinutes,
+      wakeMinutes,
+    );
+  }
+  const sleepWindow = sleepWindowLatch.current;
 
-  const [demoMode, setDemoMode] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+  /** Profile curve / phases: t = 0 at scheduled bedtime, t = 1 at scheduled wake. */
+  const elapsed = profileTimelineT(appNow, sleepWindow);
+  const beforeBed = appNow.getTime() < sleepWindow.bedtime.getTime();
+  const sessionEnded = isSessionComplete(appNow, sleepWindow);
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const finishedRef = useRef(false);
-  const virtualSessionMsRef = useRef(0);
-  const lastTickRef = useRef(Date.now());
 
   useEffect(() => {
     finishedRef.current = false;
   }, []);
 
   useEffect(() => {
-    lastTickRef.current = Date.now();
-    const id = setInterval(() => {
-      const now = Date.now();
-      const deltaMs = now - lastTickRef.current;
-      lastTickRef.current = now;
-      const rate = demoMode ? DEMO_SPEED_MULTIPLIER : 1;
-      virtualSessionMsRef.current += deltaMs * rate;
-      const nextElapsed = Math.min(1, virtualSessionMsRef.current / SESSION_MS);
-      setElapsed(nextElapsed);
-      if (nextElapsed >= 1 && !finishedRef.current) {
-        finishedRef.current = true;
-        router.replace('/debrief' as never);
-      }
-    }, 100);
-    return () => clearInterval(id);
-  }, [demoMode, router]);
+    if (!sessionEnded || finishedRef.current) return;
+    finishedRef.current = true;
+    router.replace('/debrief' as never);
+  }, [sessionEnded, router]);
 
   let cumulative = 0;
   let currentPhaseIdx = 0;
@@ -94,20 +244,17 @@ export default function LiveScreen() {
   const nextPhase = profile.phases[currentPhaseIdx + 1];
   const timeRemaining = (() => {
     if (!nextPhase) return null;
+    if (beforeBed) {
+      return `${formatDurationMinutes(minutesUntilBed(appNow, sleepWindow))} until bed`;
+    }
     let c2 = 0;
     for (let i = 0; i <= currentPhaseIdx; i++) c2 += profile.phases[i].duration;
-    const remaining = (c2 - elapsed) * SESSION_HOURS * 60;
-    const h = Math.floor(remaining / 60);
-    const m = Math.max(0, Math.round(remaining % 60));
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    const remainingProfile = Math.max(0, c2 - elapsed);
+    const remainingMin = (remainingProfile * sleepWindow.durationMs) / 60_000;
+    return formatDurationMinutes(remainingMin);
   })();
 
-  const nowTime = (() => {
-    const d = new Date();
-    const h = d.getHours();
-    const m = d.getMinutes();
-    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-  })();
+  const nowTime = formatDateAsClock(appNow);
 
   const intensityPct = Math.round(currentDose * 100);
 
@@ -179,27 +326,18 @@ export default function LiveScreen() {
       </View>
 
       <View style={[styles.timelineWrap, { paddingBottom: 36 + insets.bottom }]}>
-        <View style={{ marginBottom: 14 }}>
-          <SmallCapsLabel style={{ marginBottom: 8 }}>Session speed</SmallCapsLabel>
-          <SegmentedControl
-            options={[
-              { value: 'live', label: 'Real-time' },
-              { value: 'demo', label: `Demo · ~${DEMO_FULL_SESSION_SECONDS}s` },
-            ]}
-            value={demoMode ? 'demo' : 'live'}
-            onChange={(v) => setDemoMode(v === 'demo')}
-          />
-        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ flex: 1 }}>
-            <SmallCapsLabel style={{ marginBottom: 4 }}>Session start</SmallCapsLabel>
+            <SmallCapsLabel style={{ marginBottom: 4 }}>Bedtime</SmallCapsLabel>
             <Text style={styles.timelineAnchorValue}>
-              {formatMinutesAsTime12h(clockMinutesFromDate(sessionStartedAt))}
+              {formatMinutesAsTime12h(clockMinutesFromDate(sleepWindow.bedtime))}
             </Text>
           </View>
           <View style={{ flex: 1, alignItems: 'flex-end' }}>
             <SmallCapsLabel style={{ marginBottom: 4 }}>Usual wake</SmallCapsLabel>
-            <Text style={styles.timelineAnchorValue}>{formatMinutesAsTime12h(wakeMinutes)}</Text>
+            <Text style={styles.timelineAnchorValue}>
+              {formatMinutesAsTime12h(clockMinutesFromDate(sleepWindow.wake))}
+            </Text>
           </View>
         </View>
         <PhaseTimelineStrip phases={profile.phases} currentIdx={currentPhaseIdx} phaseProgress={phaseProgress} />
@@ -278,7 +416,12 @@ export default function LiveScreen() {
           {([
             ['Intensity', `${intensityPct}%`],
             ['Phase', `${currentPhaseIdx + 1} / ${profile.phases.length}`],
-            ['Since start', `${Math.round(elapsed * SESSION_HOURS * 60)}m`],
+            [
+              beforeBed ? 'Until bed' : 'Since bed',
+              beforeBed
+                ? `${minutesUntilBed(appNow, sleepWindow)}m`
+                : `${minutesSinceBed(appNow, sleepWindow)}m`,
+            ],
           ] as const).map(([label, val], i) => (
             <View
               key={label}
@@ -300,149 +443,3 @@ export default function LiveScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  column: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 390,
-    alignSelf: 'center',
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-  },
-  timeText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.textSec,
-    fontVariant: ['tabular-nums'],
-  },
-  timelineAnchorValue: {
-    fontFamily: fonts.bodyS,
-    fontSize: 15,
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-  },
-  heroWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 0 },
-  phaseBlock: {
-    alignItems: 'center',
-    marginTop: 32,
-    minHeight: 110,
-    alignSelf: 'stretch',
-  },
-  phaseLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  phaseName: {
-    fontFamily: fonts.hero,
-    fontSize: 44,
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  nextPhase: { marginTop: 8, fontSize: 14, color: colors.textSec, fontFamily: fonts.body },
-  timelineWrap: { paddingHorizontal: 24 },
-  holdCancelPress: {
-    marginTop: 20,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    paddingVertical: 12,
-  },
-  holdTrack: {
-    width: HOLD_BAR_WIDTH,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  holdFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: colors.dangerDim,
-  },
-  cancelHint: {
-    fontFamily: fonts.bodyM,
-    color: colors.dangerDim,
-    fontSize: 11,
-    letterSpacing: 0.7,
-  },
-  confirmRoot: {
-    flex: 1,
-  },
-  confirmDim: {
-    backgroundColor: 'rgba(7,8,12,0.82)',
-  },
-  confirmCenter: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  confirmGlass: {
-    width: '100%',
-    maxWidth: 390,
-    alignSelf: 'center',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    paddingHorizontal: 28,
-    paddingTop: 28,
-    paddingBottom: 22,
-    backgroundColor: 'rgba(12,13,18,0.88)',
-  },
-  confirmEyebrow: {
-    marginBottom: 12,
-    color: colors.textTer,
-  },
-  confirmHeading: {
-    fontFamily: fonts.hero,
-    fontSize: 34,
-    lineHeight: 38,
-    letterSpacing: -0.6,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  confirmBody: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.textSec,
-    marginBottom: 22,
-  },
-  confirmDangerCta: {
-    width: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.danger,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.dangerDim,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  confirmDangerLabel: {
-    fontFamily: fonts.bodyS,
-    fontSize: 16,
-    letterSpacing: 0.2,
-    color: 'rgba(245,245,247,0.95)',
-  },
-  confirmSecondary: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
-  },
-  confirmSecondaryLabel: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.textTer,
-    letterSpacing: 0.2,
-  },
-});

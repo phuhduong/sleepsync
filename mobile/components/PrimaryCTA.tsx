@@ -1,7 +1,8 @@
 import { Pressable, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   label: string;
@@ -20,6 +21,7 @@ const FILL_DISABLED = ['#2E3038', '#26282E'] as const;
  * Primary CTA — default is frosted neutral-grey glass (`glassDark`). Pass `variant="gradient"` for the legacy plum-gray gradient pill.
  */
 export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 'glassDark' }: Props) {
+  const colors = useCircadianColors();
   if (variant === 'gradient') {
     return (
       <Pressable
@@ -45,7 +47,7 @@ export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 
           end={{ x: 0.5, y: 1 }}
           style={styles.fill}
         >
-          <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>
+          <Text style={[styles.label, disabled && { color: colors.textTer }]}>{label}</Text>
         </LinearGradient>
       </Pressable>
     );
@@ -71,7 +73,7 @@ export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 
       ]}
     >
       <BlurView intensity={18} tint="dark" style={[styles.glassDarkFill, disabled && styles.glassDarkFillDisabled]}>
-        <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>
+        <Text style={[styles.label, disabled && { color: colors.textTer }]}>{label}</Text>
       </BlurView>
     </Pressable>
   );
@@ -114,8 +116,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0.2,
     color: 'rgba(245,245,247,0.92)',
-  },
-  labelDisabled: {
-    color: colors.textTer,
   },
 });

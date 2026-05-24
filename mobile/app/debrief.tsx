@@ -1,8 +1,10 @@
-import { ScrollView, View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
+import { ScrollView, View, Text, Pressable, TextInput } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { SmallCapsLabel } from '../components/SmallCapsLabel';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { DotScale } from '../components/DotScale';
@@ -11,6 +13,47 @@ import { PrimaryCTA } from '../components/PrimaryCTA';
 type Woke = 'no' | 'yes' | 'unsure';
 
 export default function DebriefScreen() {
+  const colors = useCircadianColors();
+  const styles = useThemedStyles((c) => ({
+    column: {
+      flex: 1,
+      width: '100%',
+      maxWidth: 390,
+      alignSelf: 'center',
+    },
+    heading: {
+      fontFamily: fonts.hero,
+      fontSize: 56,
+      color: c.text,
+      letterSpacing: -0.8,
+      lineHeight: 58,
+    },
+    qLabel: {
+      fontFamily: fonts.body,
+      fontSize: 18,
+      color: c.text,
+      marginBottom: 14,
+    },
+    addNote: {
+      color: c.textSec,
+      fontFamily: fonts.body,
+      fontSize: 14,
+    },
+    noteInput: {
+      width: '100%',
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 12,
+      padding: 14,
+      color: c.text,
+      fontFamily: fonts.body,
+      fontSize: 14,
+      height: 80,
+      textAlignVertical: 'top',
+    },
+    skipText: { color: c.textTer, fontFamily: fonts.body, fontSize: 11, letterSpacing: 0.4, opacity: 0.7 },
+  }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -98,44 +141,3 @@ export default function DebriefScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  column: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 390,
-    alignSelf: 'center',
-  },
-  heading: {
-    fontFamily: fonts.hero,
-    fontSize: 56,
-    color: colors.text,
-    letterSpacing: -0.8,
-    lineHeight: 58,
-  },
-  qLabel: {
-    fontFamily: fonts.body,
-    fontSize: 18,
-    color: colors.text,
-    marginBottom: 14,
-  },
-  addNote: {
-    color: colors.textSec,
-    fontFamily: fonts.body,
-    fontSize: 14,
-  },
-  noteInput: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 14,
-    color: colors.text,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  skipText: { color: colors.textTer, fontFamily: fonts.body, fontSize: 11, letterSpacing: 0.4, opacity: 0.7 },
-});

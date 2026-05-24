@@ -1,5 +1,5 @@
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   data: number[];
@@ -8,6 +8,7 @@ type Props = {
 };
 
 export function SparkLine({ data, width = 320, height = 40 }: Props) {
+  const colors = useCircadianColors();
   if (!data.length) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);

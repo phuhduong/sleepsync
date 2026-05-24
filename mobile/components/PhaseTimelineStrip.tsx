@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { colors } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import type { Phase } from '../utils/profiles';
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
 };
 
 export function PhaseTimelineStrip({ phases, currentIdx, phaseProgress }: Props) {
+  const colors = useCircadianColors();
   return (
     <View style={{ flexDirection: 'row', gap: 3, width: '100%', alignItems: 'center' }}>
       {phases.map((ph, i) => {
@@ -22,7 +23,7 @@ export function PhaseTimelineStrip({ phases, currentIdx, phaseProgress }: Props)
               height: 3,
               borderRadius: 2,
               overflow: 'hidden',
-              backgroundColor: isPast ? 'rgba(123,92,240,0.45)' : 'rgba(245,245,247,0.1)',
+              backgroundColor: isPast ? colors.accentMid : 'rgba(245,245,247,0.1)',
             }}
           >
             {isCur && (

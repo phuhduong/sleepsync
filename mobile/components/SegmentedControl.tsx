@@ -1,5 +1,6 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Option<T extends string> = { value: T; label: string };
 
@@ -10,6 +11,7 @@ type Props<T extends string> = {
 };
 
 export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
+  const colors = useCircadianColors();
   return (
     <View style={styles.wrap}>
       {options.map(opt => {

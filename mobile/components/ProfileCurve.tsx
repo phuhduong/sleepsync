@@ -1,5 +1,6 @@
 import Svg, { Defs, LinearGradient, Stop, Path, G, Circle } from 'react-native-svg';
-import { colors, hexToRgb } from '../theme/tokens';
+import { hexToRgb } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import type { Keyframe } from '../utils/profiles';
 
 type Props = {
@@ -19,6 +20,7 @@ export function ProfileCurve({
   currentT = null,
   mini = false,
 }: Props) {
+  const colors = useCircadianColors();
   const pad = { top: 12, right: 12, bottom: 12, left: 12 };
   const W = width - pad.left - pad.right;
   const H = height - pad.top - pad.bottom;

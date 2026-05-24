@@ -1,5 +1,6 @@
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   value: number | null;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function DotScale({ value, max = 5, onChange, readOnly }: Props) {
+  const colors = useCircadianColors();
   return (
     <View style={styles.row}>
       {Array.from({ length: max }, (_, i) => i + 1).map(n => {

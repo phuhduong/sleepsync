@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { BackgroundCanvas } from './BackgroundCanvas';
-import { colors } from '../theme/tokens';
+import { useCircadianColors, useCircadianSky } from '../theme/CircadianThemeProvider';
 
 /** Matches tab column layouts — content + aurora stay inside this width on wide viewports (e.g. web). */
 export const MOBILE_COLUMN_MAX = 390;
@@ -32,6 +32,8 @@ export function MobileTabScreen({
   aurora = true,
   auroraInteractive = false,
 }: MobileTabScreenProps) {
+  const colors = useCircadianColors();
+  const sky = useCircadianSky();
   const { width, height } = useWindowDimensions();
   const auroraWidth = Math.min(width, MOBILE_COLUMN_MAX);
 
@@ -96,12 +98,12 @@ export function MobileTabScreen({
   );
 
   const inner = (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.gutter }]}>
       {aurora ? (
         <>
           <View
             pointerEvents="none"
-            style={[StyleSheet.absoluteFillObject, styles.gutterFill, { alignItems: 'center' }]}
+            style={[StyleSheet.absoluteFillObject, styles.gutterFill, { alignItems: 'center', backgroundColor: colors.gutter }]}
           >
             <View style={{ width: auroraWidth, height, overflow: 'hidden' }}>
               <BackgroundCanvas
@@ -109,6 +111,7 @@ export function MobileTabScreen({
                 height={height}
                 swipeOffsetX={swipe.x}
                 swipeOffsetY={swipe.y}
+                sky={{ zenith: sky.zenith, horizon: sky.horizon, cloud: sky.cloud }}
               />
             </View>
           </View>
@@ -126,7 +129,7 @@ export function MobileTabScreen({
       ) : (
         <View
           pointerEvents="none"
-          style={[StyleSheet.absoluteFillObject, styles.gutterFill, { alignItems: 'center' }]}
+          style={[StyleSheet.absoluteFillObject, styles.gutterFill, { alignItems: 'center', backgroundColor: colors.gutter }]}
         >
           <View style={{ width: auroraWidth, height, backgroundColor: colors.bg }} />
         </View>
@@ -150,12 +153,9 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: '#07080C',
     position: 'relative',
   },
-  gutterFill: {
-    backgroundColor: '#07080C',
-  },
+  gutterFill: {},
   gestureStrip: {
     zIndex: 1,
   },

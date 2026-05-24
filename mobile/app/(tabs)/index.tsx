@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { colors, fonts } from '../../theme/tokens';
+import { fonts } from '../../theme/tokens';
+import { useCircadianColors } from '../../theme/CircadianThemeProvider';
 import { findProfile } from '../../utils/profiles';
 import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
 import { useAppState } from '../../state/AppState';
@@ -19,6 +20,7 @@ const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 export default function HomeScreen() {
+  const colors = useCircadianColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
@@ -73,8 +75,10 @@ export default function HomeScreen() {
           style={styles.changeLink}
           hitSlop={6}
         >
-          <Text style={styles.changeLinkText}>
-            {recommendedText} <Text style={styles.changeLinkSep}>·</Text> <Text style={styles.changeLinkVerb}>Change profile</Text>
+          <Text style={[styles.changeLinkText, { color: colors.textSec }]}>
+            {recommendedText}{' '}
+            <Text style={{ color: colors.textTer }}>·</Text>{' '}
+            <Text style={[styles.changeLinkVerb, { color: colors.text }]}>Change profile</Text>
           </Text>
         </Pressable>
       </View>
@@ -188,13 +192,9 @@ const styles = StyleSheet.create({
   changeLinkText: {
     fontFamily: fonts.body,
     fontSize: 14,
-    color: colors.textSec,
   },
-  changeLinkSep: {
-    color: colors.textTer,
-  },
+  changeLinkSep: {},
   changeLinkVerb: {
-    color: colors.text,
     fontFamily: fonts.bodyM,
   },
   glassCard: {

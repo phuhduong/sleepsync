@@ -1,7 +1,7 @@
 import { Modal, Pressable, View, StyleSheet, Animated, Easing } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/tokens';
+import { useCircadianColors } from '../theme/CircadianThemeProvider';
 
 type Props = {
   visible: boolean;
@@ -10,6 +10,7 @@ type Props = {
 };
 
 export function BottomSheet({ visible, onClose, children }: Props) {
+  const colors = useCircadianColors();
   const insets = useSafeAreaInsets();
   const slide = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(0)).current;
@@ -44,6 +45,8 @@ export function BottomSheet({ visible, onClose, children }: Props) {
           style={[
             styles.sheet,
             {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
               paddingBottom: 24 + insets.bottom,
               transform: [
                 {
@@ -56,7 +59,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
             },
           ]}
         >
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: colors.surface3 }]} />
           {children}
         </Animated.View>
       </Animated.View>
@@ -70,18 +73,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: 24,
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.surface3,
     alignSelf: 'center',
     marginTop: 14,
     marginBottom: 24,

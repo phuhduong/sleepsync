@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, fonts } from '../../theme/tokens';
+import { fonts } from '../../theme/tokens';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { history, profiles, findProfile } from '../../utils/profiles';
 import { useAppState } from '../../state/AppState';
 import { SmallCapsLabel } from '../../components/SmallCapsLabel';
@@ -20,6 +21,108 @@ import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabSc
 const EYEBROW = 'Past nights';
 
 export default function HistoryScreen() {
+  const styles = useThemedStyles((c) => ({
+    column: {
+      flex: 1,
+      width: '100%',
+      maxWidth: MOBILE_COLUMN_MAX,
+      alignSelf: 'center',
+      zIndex: 1,
+    },
+    eyebrow: {
+      marginBottom: 10,
+    },
+    heading: {
+      fontFamily: fonts.hero,
+      fontSize: 44,
+      color: c.text,
+      letterSpacing: -0.8,
+      marginBottom: 4,
+    },
+    emptyWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 0,
+      paddingBottom: 80,
+      marginTop: 8,
+    },
+    emptyTitle: {
+      fontFamily: fonts.hero,
+      fontSize: 30,
+      letterSpacing: -0.5,
+      color: c.text,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    emptyBody: {
+      fontFamily: fonts.body,
+      fontSize: 14,
+      color: c.textSec,
+      lineHeight: 22,
+      maxWidth: 260,
+      textAlign: 'center',
+    },
+    detailTitle: {
+      fontFamily: fonts.hero,
+      fontSize: 44,
+      color: c.text,
+      letterSpacing: -0.8,
+      marginBottom: 24,
+    },
+    sparkGlass: {
+      marginTop: 20,
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.09)',
+      backgroundColor: 'rgba(12,13,18,0.82)',
+    },
+    detailGlass: {
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.09)',
+      backgroundColor: 'rgba(12,13,18,0.82)',
+    },
+    glassInner: {
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+    },
+    statsRow: {
+      marginTop: 28,
+      flexDirection: 'row',
+      gap: 12,
+      paddingTop: 24,
+      paddingBottom: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    groggyBlock: {
+      marginTop: 8,
+      paddingTop: 20,
+      paddingBottom: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    scaleEnds: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+    },
+    summaryCard: {
+      marginTop: 20,
+      paddingTop: 20,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    summaryText: {
+      fontFamily: fonts.body,
+      fontSize: 14,
+      color: c.textSec,
+      lineHeight: 22,
+    },
+  }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -149,106 +252,3 @@ export default function HistoryScreen() {
     </MobileTabScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  column: {
-    flex: 1,
-    width: '100%',
-    maxWidth: MOBILE_COLUMN_MAX,
-    alignSelf: 'center',
-    zIndex: 1,
-  },
-  eyebrow: {
-    marginBottom: 10,
-  },
-  heading: {
-    fontFamily: fonts.hero,
-    fontSize: 44,
-    color: colors.text,
-    letterSpacing: -0.8,
-    marginBottom: 4,
-  },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 0,
-    paddingBottom: 80,
-    marginTop: 8,
-  },
-  emptyTitle: {
-    fontFamily: fonts.hero,
-    fontSize: 30,
-    letterSpacing: -0.5,
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyBody: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.textSec,
-    lineHeight: 22,
-    maxWidth: 260,
-    textAlign: 'center',
-  },
-  detailTitle: {
-    fontFamily: fonts.hero,
-    fontSize: 44,
-    color: colors.text,
-    letterSpacing: -0.8,
-    marginBottom: 24,
-  },
-  sparkGlass: {
-    marginTop: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(12,13,18,0.82)',
-  },
-  detailGlass: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(12,13,18,0.82)',
-  },
-  glassInner: {
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-  },
-  statsRow: {
-    marginTop: 28,
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 24,
-    paddingBottom: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  groggyBlock: {
-    marginTop: 8,
-    paddingTop: 20,
-    paddingBottom: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  scaleEnds: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  summaryCard: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  summaryText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.textSec,
-    lineHeight: 22,
-  },
-});
