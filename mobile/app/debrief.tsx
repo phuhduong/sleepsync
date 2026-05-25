@@ -9,8 +9,12 @@ import { SmallCapsLabel } from '../components/SmallCapsLabel';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { DotScale } from '../components/DotScale';
 import { PrimaryCTA } from '../components/PrimaryCTA';
+import { useAppState } from '../state/AppState';
+import { findProfile } from '../utils/profiles';
+import { appendSession } from '../utils/sessionLog';
+import type { SessionWoke } from '../utils/profiles';
 
-type Woke = 'no' | 'yes' | 'unsure';
+type Woke = SessionWoke;
 
 export default function DebriefScreen() {
   const colors = useCircadianColors();
@@ -53,22 +57,63 @@ export default function DebriefScreen() {
       textAlignVertical: 'top',
     },
     skipText: { color: c.textTer, fontFamily: fonts.body, fontSize: 11, letterSpacing: 0.4, opacity: 0.7 },
+    saveError: {
+      color: c.dangerDim,
+      fontFamily: fonts.body,
+      fontSize: 13,
+      textAlign: 'center',
+      marginBottom: 10,
+    },
   }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const {
+    pendingSession,
+    clearPendingSession,
+    selectedProfileId,
+    setIsFirstTime,
+  } = useAppState();
 
   const [woke, setWoke] = useState<Woke | null>(null);
   const [groggy, setGroggy] = useState<number | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const canSave = woke !== null && groggy !== null;
 
-  const save = () => {
-    if (!canSave) return;
-    setSaved(true);
-    setTimeout(() => router.replace('/' as never), 1200);
+  const skip = () => {
+    clearPendingSession();
+    router.replace('/' as never);
+  };
+
+  const save = async () => {
+    if (!canSave || saving || saved) return;
+    setSaving(true);
+    setSaveError(null);
+    const profileId = pendingSession?.profileId ?? selectedProfileId;
+    const prof = findProfile(profileId);
+    try {
+      await appendSession({
+        profileId,
+        profile: prof.name,
+        woke: woke!,
+        groggy: groggy!,
+        note: note.trim() || undefined,
+      });
+      clearPendingSession();
+      setIsFirstTime(false);
+      setSaved(true);
+      setTimeout(() => router.replace('/' as never), 1200);
+    } catch (e) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[debrief] save failed', e);
+      }
+      setSaveError('Could not save. Try again.');
+      setSaving(false);
+    }
   };
 
   return (
@@ -128,12 +173,19 @@ export default function DebriefScreen() {
             <Text style={{ color: colors.accent, fontFamily: fonts.bodyM, fontSize: 14 }}>Debrief saved ✓</Text>
           </View>
         ) : (
-          <PrimaryCTA label="Save & Done" onPress={save} disabled={!canSave} />
+          <>
+            {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
+            <PrimaryCTA
+              label="Save & Done"
+              onPress={save}
+              disabled={!canSave || saving}
+            />
+          </>
         )}
       </View>
 
       <View style={{ marginTop: 18, alignItems: 'center' }}>
-        <Pressable onPress={() => router.replace('/' as never)} hitSlop={6}>
+        <Pressable onPress={skip} hitSlop={6}>
           <Text style={styles.skipText}>Didn&apos;t use the patch tonight →</Text>
         </Pressable>
       </View>

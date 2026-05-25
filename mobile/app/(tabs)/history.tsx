@@ -1,13 +1,16 @@
 import { ScrollView, View, Text, StyleSheet, useWindowDimensions } from 'react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import Svg, { Circle } from 'react-native-svg';
-import { fonts } from '../../theme/tokens';
+import { fonts, rgba } from '../../theme/tokens';
+import { useCircadianColors } from '../../theme/CircadianThemeProvider';
 import { useThemedStyles } from '../../theme/useThemedStyles';
-import { history, profiles, findProfile } from '../../utils/profiles';
-import { useAppState } from '../../state/AppState';
+import { findProfile } from '../../utils/profiles';
+import type { SessionRecord } from '../../utils/profiles';
+import { loadSessions, subscribeSessionLog } from '../../utils/sessionLog';
 import { SmallCapsLabel } from '../../components/SmallCapsLabel';
 import { ProfileCurve } from '../../components/ProfileCurve';
 import { SparkLine } from '../../components/SparkLine';
@@ -20,7 +23,14 @@ import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabSc
 
 const EYEBROW = 'Past nights';
 
+function wokeLabel(woke: SessionRecord['woke']): string {
+  if (woke === 'no') return 'No';
+  if (woke === 'yes') return 'Yes';
+  return "Can't say";
+}
+
 export default function HistoryScreen() {
+  const colors = useCircadianColors();
   const styles = useThemedStyles((c) => ({
     column: {
       flex: 1,
@@ -122,26 +132,66 @@ export default function HistoryScreen() {
       color: c.textSec,
       lineHeight: 22,
     },
+    noteText: {
+      fontFamily: fonts.body,
+      fontSize: 14,
+      color: c.textTer,
+      lineHeight: 22,
+      marginTop: 10,
+      fontStyle: 'italic',
+    },
   }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { isFirstTime } = useAppState();
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const grogginess = history.map(h => h.groggy);
+  const reloadSessions = useCallback(() => {
+    setLoading(true);
+    loadSessions()
+      .then((rows) => {
+        setSessions(rows);
+        setSelected((prev) =>
+          prev !== null && rows.some((r) => r.id === prev) ? prev : null,
+        );
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadSessions();
+    }, [reloadSessions]),
+  );
+
+  useEffect(() => subscribeSessionLog(reloadSessions), [reloadSessions]);
+
+  const grogginess = sessions.map((h) => h.groggy);
   const contentW = Math.min(windowWidth, MOBILE_COLUMN_MAX);
   const scrollPad = 48;
   const chartW = contentW - scrollPad - 32;
   const curveInnerW = contentW - scrollPad - 32;
 
-  const oldestLabel = history.length ? history[history.length - 1].date : '';
-  const newestLabel = history.length ? history[0].date : '';
-  const nightsCount = history.length;
+  const oldestLabel = sessions.length ? sessions[sessions.length - 1].date : '';
+  const newestLabel = sessions.length ? sessions[0].date : '';
+  const nightsCount = sessions.length;
   const grogginessTitle =
     nightsCount === 1 ? 'Grogginess — 1 night' : `Grogginess — last ${nightsCount} nights`;
 
-  if (isFirstTime || history.length === 0) {
+  if (loading) {
+    return (
+      <MobileTabScreen aurora={false}>
+        <View style={[styles.column, { paddingHorizontal: 24, paddingTop: insets.top + 12 }]}>
+          <SmallCapsLabel style={styles.eyebrow}>{EYEBROW}</SmallCapsLabel>
+          <Text style={styles.heading}>History</Text>
+        </View>
+      </MobileTabScreen>
+    );
+  }
+
+  if (sessions.length === 0) {
     return (
       <MobileTabScreen aurora={false}>
         <View style={[styles.column, { paddingHorizontal: 24, paddingTop: insets.top + 12 }]}>
@@ -149,9 +199,9 @@ export default function HistoryScreen() {
           <Text style={styles.heading}>History</Text>
           <View style={styles.emptyWrap}>
             <Svg width={80} height={80} viewBox="0 0 80 80" fill="none">
-              <Circle cx={40} cy={40} r={38} stroke="rgba(123,92,240,0.2)" strokeWidth={1.5} />
-              <Circle cx={40} cy={40} r={26} stroke="rgba(123,92,240,0.12)" strokeWidth={1} />
-              <Circle cx={40} cy={40} r={5} fill="rgba(123,92,240,0.3)" />
+              <Circle cx={40} cy={40} r={38} stroke={rgba(colors.accent, 0.2)} strokeWidth={1.5} />
+              <Circle cx={40} cy={40} r={26} stroke={rgba(colors.accent, 0.12)} strokeWidth={1} />
+              <Circle cx={40} cy={40} r={5} fill={rgba(colors.accent, 0.3)} />
             </Svg>
             <View style={{ alignItems: 'center', marginTop: 20 }}>
               <Text style={styles.emptyTitle}>No sessions yet</Text>
@@ -169,8 +219,8 @@ export default function HistoryScreen() {
   }
 
   if (selected !== null) {
-    const s = history.find(h => h.id === selected)!;
-    const prof = profiles.find(p => p.name === s.profile) ?? findProfile('standard');
+    const s = sessions.find((h) => h.id === selected)!;
+    const prof = findProfile(s.profileId);
     return (
       <MobileTabScreen aurora={false}>
         <ScrollView
@@ -190,7 +240,7 @@ export default function HistoryScreen() {
 
           <View style={styles.statsRow}>
             <StatNumber
-              value={s.woke === 'no' ? 'No' : 'Yes'}
+              value={wokeLabel(s.woke)}
               label="Woke?"
               size={24}
               style={{ flex: 1 }}
@@ -215,6 +265,7 @@ export default function HistoryScreen() {
           <View style={styles.summaryCard}>
             <SmallCapsLabel style={{ marginBottom: 6 }}>Summary</SmallCapsLabel>
             <Text style={styles.summaryText}>{s.summary}</Text>
+            {s.note ? <Text style={styles.noteText}>{s.note}</Text> : null}
           </View>
         </ScrollView>
       </MobileTabScreen>
@@ -246,7 +297,7 @@ export default function HistoryScreen() {
 
         <View style={{ marginTop: 24 }}>
           <SmallCapsLabel style={{ marginBottom: 14 }}>Recent nights</SmallCapsLabel>
-          <HistoryTimeline sessions={history} onSelectSession={(id) => setSelected(id)} />
+          <HistoryTimeline sessions={sessions} onSelectSession={(id) => setSelected(id)} />
         </View>
       </ScrollView>
     </MobileTabScreen>

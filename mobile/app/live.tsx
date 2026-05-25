@@ -182,7 +182,7 @@ export default function LiveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { selectedProfileId, bedtimeMinutes, wakeMinutes } = useAppState();
+  const { selectedProfileId, bedtimeMinutes, wakeMinutes, setPendingSession } = useAppState();
   const profile = findProfile(selectedProfileId);
   const colWidth = Math.min(width, 390);
   const appNow = useAppNow();
@@ -197,6 +197,16 @@ export default function LiveScreen() {
     );
   }
   const sleepWindow = sleepWindowLatch.current;
+
+  const pendingSessionSet = useRef(false);
+  useEffect(() => {
+    if (pendingSessionSet.current) return;
+    pendingSessionSet.current = true;
+    setPendingSession({
+      profileId: selectedProfileId,
+      startedAt: appNow.toISOString(),
+    });
+  }, [selectedProfileId, appNow, setPendingSession]);
 
   /** Profile curve / phases: t = 0 at scheduled bedtime, t = 1 at scheduled wake. */
   const elapsed = profileTimelineT(appNow, sleepWindow);

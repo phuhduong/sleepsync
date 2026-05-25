@@ -16,14 +16,20 @@ export type Profile = {
   phases: Phase[];
 };
 
+export type SessionWoke = 'yes' | 'no' | 'unsure';
+
 export type SessionRecord = {
   id: number;
+  /** Display label, e.g. "May 24". */
   date: string;
+  profileId: string;
   profile: string;
   outcome: 'good' | 'ok';
   summary: string;
-  woke: 'yes' | 'no';
+  woke: SessionWoke;
   groggy: number;
+  note?: string;
+  completedAt: string;
 };
 
 export const profiles: Profile[] = [
@@ -139,14 +145,6 @@ export const profiles: Profile[] = [
       { id: 'prewake',   name: 'Pre-wake',      duration: 0.20, dose: 0.12 },
     ],
   },
-];
-
-export const history: SessionRecord[] = [
-  { id: 1, date: 'Apr 20', profile: 'Standard',     outcome: 'good', summary: 'Slept through. No grogginess.',      woke: 'no',  groggy: 1 },
-  { id: 2, date: 'Apr 19', profile: 'Early Waker',  outcome: 'ok',   summary: 'Woke once, 3:40 am. Mild grogginess.', woke: 'yes', groggy: 3 },
-  { id: 3, date: 'Apr 18', profile: 'Standard',     outcome: 'good', summary: 'Slept through. Refreshed.',           woke: 'no',  groggy: 1 },
-  { id: 4, date: 'Apr 17', profile: 'Maintenance',  outcome: 'ok',   summary: 'Brief waking, fell back quickly.',    woke: 'yes', groggy: 2 },
-  { id: 5, date: 'Apr 15', profile: 'Gentle Ramp',  outcome: 'good', summary: 'Slept through. Minimal grogginess.',  woke: 'no',  groggy: 2 },
 ];
 
 export const findProfile = (id: string): Profile =>

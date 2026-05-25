@@ -6,6 +6,8 @@ import { useCircadianDev, useCircadianTheme } from '../theme/CircadianThemeProvi
 import { formatDateAsClock, minutesSinceMidnight } from '../theme/simulatedTime';
 import { fonts } from '../theme/tokens';
 import { DEMO_FULL_SESSION_SECONDS } from '../utils/sessionDemo';
+import { clearSessions } from '../utils/sessionLog';
+import { useAppState } from '../state/AppState';
 
 /**
  * Dev-only overlay to scrub or fast-forward simulated time. Stripped from production (`__DEV__`).
@@ -13,8 +15,11 @@ import { DEMO_FULL_SESSION_SECONDS } from '../utils/sessionDemo';
 export function CircadianDebugPanel() {
   const dev = useCircadianDev();
   const { phaseLabel, blendT, appNow } = useCircadianTheme();
+  const { clearPendingSession } = useAppState();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const [clearingHistory, setClearingHistory] = useState(false);
+  const [clearHistoryArmed, setClearHistoryArmed] = useState(false);
 
   if (!__DEV__ || !dev) return null;
 
@@ -30,6 +35,27 @@ export function CircadianDebugPanel() {
   const fabLabel = demoAccelerating ? `⏱ ${phaseLabel} · fast` : `⏱ ${phaseLabel}`;
   const timeLabel = formatDateAsClock(appNow);
 
+  const runClearHistory = async () => {
+    setClearingHistory(true);
+    try {
+      await clearSessions();
+      clearPendingSession();
+      setClearHistoryArmed(false);
+    } catch (e) {
+      if (__DEV__) console.warn('[dev] clear history failed', e);
+    } finally {
+      setClearingHistory(false);
+    }
+  };
+
+  const onClearHistoryPress = () => {
+    if (!clearHistoryArmed) {
+      setClearHistoryArmed(true);
+      return;
+    }
+    void runClearHistory();
+  };
+
   return (
     <View
       pointerEvents="box-none"
@@ -39,7 +65,13 @@ export function CircadianDebugPanel() {
         <View style={styles.panel}>
           <View style={styles.header}>
             <Text style={styles.title}>Dev tools</Text>
-            <Pressable onPress={() => setOpen(false)} hitSlop={8}>
+            <Pressable
+              onPress={() => {
+                setOpen(false);
+                setClearHistoryArmed(false);
+              }}
+              hitSlop={8}
+            >
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
@@ -106,6 +138,35 @@ export function CircadianDebugPanel() {
               Scrubbed: {Math.round(minutesSinceMidnight(appNow))} min since midnight
             </Text>
           ) : null}
+
+          <View style={styles.sectionDivider} />
+          <Text style={styles.sectionLabel}>
+            History — clears AsyncStorage (@sleepsync/sessions). History tab updates immediately.
+          </Text>
+          <View style={styles.clearRow}>
+            <Pressable
+              onPress={onClearHistoryPress}
+              disabled={clearingHistory}
+              style={({ pressed }) => [
+                styles.dangerBtn,
+                clearHistoryArmed && styles.dangerBtnArmed,
+                (pressed || clearingHistory) && styles.dangerBtnPressed,
+              ]}
+            >
+              <Text style={styles.dangerBtnText}>
+                {clearingHistory
+                  ? 'Clearing…'
+                  : clearHistoryArmed
+                    ? 'Tap again to confirm'
+                    : 'Clear all history'}
+              </Text>
+            </Pressable>
+            {clearHistoryArmed ? (
+              <Pressable onPress={() => setClearHistoryArmed(false)} hitSlop={8}>
+                <Text style={styles.cancelClearText}>Cancel</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : (
         <Pressable
@@ -232,5 +293,32 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 10,
     color: 'rgba(245,245,247,0.35)',
+  },
+  clearRow: {
+    gap: 8,
+  },
+  dangerBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(220,80,80,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(220,80,80,0.35)',
+  },
+  dangerBtnArmed: {
+    backgroundColor: 'rgba(220,80,80,0.38)',
+    borderColor: 'rgba(220,80,80,0.55)',
+  },
+  dangerBtnPressed: { opacity: 0.75 },
+  dangerBtnText: {
+    fontFamily: fonts.bodyM,
+    fontSize: 12,
+    color: 'rgba(255,180,180,0.95)',
+  },
+  cancelClearText: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: 'rgba(245,245,247,0.45)',
+    textAlign: 'center',
   },
 });
