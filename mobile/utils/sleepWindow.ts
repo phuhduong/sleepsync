@@ -62,12 +62,16 @@ export function resolveActiveSleepWindow(
   }
 
   if (now.getTime() < tonightBed.getTime()) {
+    const msUntilTonightBed = tonightBed.getTime() - now.getTime();
     const prevBed = addDays(tonightBed, -1);
-    let prevWake = atClockMinutesOnDay(now, wakeM);
+    let prevWake = atClockMinutesOnDay(prevBed, wakeM);
     if (prevWake.getTime() <= prevBed.getTime()) {
       prevWake = addDays(prevWake, 1);
     }
-    if (now.getTime() >= prevBed.getTime() && now.getTime() < prevWake.getTime()) {
+    const inPrevWindow =
+      now.getTime() >= prevBed.getTime() && now.getTime() < prevWake.getTime();
+    // Applying for upcoming bedtime (e.g. 3:25 AM, bed 3:30 AM) — use tonight, not yesterday's run.
+    if (inPrevWindow && msUntilTonightBed > durationMs) {
       return { bedtime: prevBed, wake: prevWake, durationMs };
     }
     return { bedtime: tonightBed, wake: tonightWake, durationMs };
@@ -78,6 +82,58 @@ export function resolveActiveSleepWindow(
   }
 
   return { bedtime: tonightBed, wake: tonightWake, durationMs };
+}
+
+/**
+ * True when apply should be blocked (between bed and wake).
+ *
+ * Uses **current** bed/wake schedule — not the same as `resolveActiveSleepWindow` (Live latch).
+ * Before tonight's bed, yesterday's window only blocks apply if tonight's bed is still farther
+ * than one sleep-window away (so moving bedtime later unlocks apply).
+ */
+export function isInActiveSleepWindow(
+  now: Date,
+  bedtimeMinutes: number,
+  wakeMinutes: number,
+): boolean {
+  const bedM = clampMinutes(bedtimeMinutes);
+  const wakeM = clampMinutes(wakeMinutes);
+  const durationMs = sleepWindowDurationMinutes(bedM, wakeM) * 60 * 1000;
+
+  let tonightBed = atClockMinutesOnDay(now, bedM);
+  let tonightWake = atClockMinutesOnDay(now, wakeM);
+  if (tonightWake.getTime() <= tonightBed.getTime()) {
+    tonightWake = addDays(tonightWake, 1);
+  }
+
+  const t = now.getTime();
+
+  if (t >= tonightBed.getTime() && t < tonightWake.getTime()) {
+    return true;
+  }
+
+  if (t < tonightBed.getTime()) {
+    const prevBed = addDays(tonightBed, -1);
+    let prevWake = atClockMinutesOnDay(prevBed, wakeM);
+    if (prevWake.getTime() <= prevBed.getTime()) {
+      prevWake = addDays(prevWake, 1);
+    }
+    const inPrevWindow = t >= prevBed.getTime() && t < prevWake.getTime();
+    if (!inPrevWindow) return false;
+    const msUntilTonightBed = tonightBed.getTime() - t;
+    return msUntilTonightBed > durationMs;
+  }
+
+  return false;
+}
+
+/** Apply is only allowed before the scheduled bedtime for the active/upcoming night. */
+export function canApplyPatch(
+  now: Date,
+  bedtimeMinutes: number,
+  wakeMinutes: number,
+): boolean {
+  return !isInActiveSleepWindow(now, bedtimeMinutes, wakeMinutes);
 }
 
 /** Profile parameter in [0, 1] over the scheduled bed→wake window. */

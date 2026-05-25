@@ -1,4 +1,6 @@
 import {
+  canApplyPatch,
+  isInActiveSleepWindow,
   isSessionComplete,
   profileTimelineT,
   resolveActiveSleepWindow,
@@ -73,6 +75,30 @@ describe('resolveActiveSleepWindow', () => {
     expect(w.bedtime).toEqual(localDate(2026, 5, 1, 22, 30));
     expect(w.wake).toEqual(localDate(2026, 5, 2, 6, 30));
     expect(profileTimelineT(now, w)).toBeGreaterThan(0.9);
+  });
+
+  it('isInActiveSleepWindow blocks apply between bed and wake', () => {
+    expect(canApplyPatch(localDate(2026, 5, 1, 20, 30), BED, WAKE)).toBe(true);
+    expect(isInActiveSleepWindow(localDate(2026, 5, 2, 2, 30), BED, WAKE)).toBe(true);
+    expect(canApplyPatch(localDate(2026, 5, 2, 2, 30), BED, WAKE)).toBe(false);
+    expect(canApplyPatch(localDate(2026, 5, 2, 7, 0), BED, WAKE)).toBe(true);
+  });
+
+  it('allows apply after moving bedtime later while still before that bed', () => {
+    const now = localDate(2026, 5, 2, 2, 0); // 2 AM, was blocked with 10:30 PM bed
+    const laterBed = 3 * 60 + 30; // 3:30 AM tonight
+    expect(canApplyPatch(now, laterBed, WAKE)).toBe(true);
+    expect(canApplyPatch(now, BED, WAKE)).toBe(false);
+  });
+
+  it('latches tonight window when applying shortly before early-morning bed', () => {
+    const earlyBed = 3 * 60 + 30; // 3:30 AM
+    const now = localDate(2026, 5, 2, 3, 25);
+    const w = resolveActiveSleepWindow(now, earlyBed, WAKE);
+    expect(w.bedtime).toEqual(localDate(2026, 5, 2, 3, 30));
+    expect(w.wake).toEqual(localDate(2026, 5, 2, 6, 30));
+    expect(profileTimelineT(now, w)).toBeLessThan(0.05);
+    expect(isSessionComplete(localDate(2026, 5, 2, 4, 0), w)).toBe(false);
   });
 
   it('after wake, fresh resolve points at upcoming tonight (Live latches to avoid loop)', () => {

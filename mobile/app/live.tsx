@@ -11,6 +11,7 @@ import { formatMinutesAsTime12h, clockMinutesFromDate } from '../utils/sleepSche
 import type { SleepWindow } from '../utils/sleepWindow';
 import {
   formatDurationMinutes,
+  isInActiveSleepWindow,
   isSessionComplete,
   minutesSinceBed,
   minutesUntilBed,
@@ -182,7 +183,8 @@ export default function LiveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { selectedProfileId, bedtimeMinutes, wakeMinutes, setPendingSession } = useAppState();
+  const { selectedProfileId, bedtimeMinutes, wakeMinutes, pendingSession, setPendingSession } =
+    useAppState();
   const profile = findProfile(selectedProfileId);
   const colWidth = Math.min(width, 390);
   const appNow = useAppNow();
@@ -198,15 +200,33 @@ export default function LiveScreen() {
   }
   const sleepWindow = sleepWindowLatch.current;
 
+  const inSleepWindow = isInActiveSleepWindow(appNow, bedtimeMinutes, wakeMinutes);
+  const startedBeforeBed =
+    pendingSession !== null &&
+    new Date(pendingSession.startedAt).getTime() <= sleepWindow.bedtime.getTime();
+
+  useEffect(() => {
+    if (inSleepWindow && !startedBeforeBed) {
+      router.replace('/' as never);
+    }
+  }, [inSleepWindow, startedBeforeBed, router]);
+
   const pendingSessionSet = useRef(false);
   useEffect(() => {
+    if (inSleepWindow && !startedBeforeBed) return;
     if (pendingSessionSet.current) return;
     pendingSessionSet.current = true;
     setPendingSession({
       profileId: selectedProfileId,
       startedAt: appNow.toISOString(),
     });
-  }, [selectedProfileId, appNow, setPendingSession]);
+  }, [
+    selectedProfileId,
+    appNow,
+    setPendingSession,
+    inSleepWindow,
+    startedBeforeBed,
+  ]);
 
   /** Profile curve / phases: t = 0 at scheduled bedtime, t = 1 at scheduled wake. */
   const elapsed = profileTimelineT(appNow, sleepWindow);

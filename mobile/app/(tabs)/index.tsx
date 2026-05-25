@@ -1,12 +1,13 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { fonts } from '../../theme/tokens';
-import { useCircadianColors } from '../../theme/CircadianThemeProvider';
+import { useAppNow, useCircadianColors } from '../../theme/CircadianThemeProvider';
 import { findProfile } from '../../utils/profiles';
 import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
+import { canApplyPatch } from '../../utils/sleepWindow';
 import { useAppState } from '../../state/AppState';
 import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
 import { SmallCapsLabel } from '../../components/SmallCapsLabel';
@@ -33,13 +34,10 @@ export default function HomeScreen() {
   } = useAppState();
   const profile = findProfile(selectedProfileId);
 
-  const [now, setNow] = useState(new Date());
+  const appNow = useAppNow();
   const [pickerTarget, setPickerTarget] = useState<'bed' | 'wake' | null>(null);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(id);
-  }, []);
+  const applyAllowed = canApplyPatch(appNow, bedtimeMinutes, wakeMinutes);
 
   const planLabel = isFirstTime ? 'Welcome · First session' : "Tonight's plan";
   const recommendedText = profile.recommended ? 'Recommended' : 'Custom';
@@ -52,7 +50,7 @@ export default function HomeScreen() {
           sleepsync
         </Text>
         <Text style={styles.timeStamp} pointerEvents="none">
-          {formatTime(now)} · {formatDate(now)}
+          {formatTime(appNow)} · {formatDate(appNow)}
         </Text>
       </View>
 
@@ -118,7 +116,16 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <PrimaryCTA label="Apply Patch Tonight" onPress={() => router.push('/live' as never)} />
+        <PrimaryCTA
+          label="Apply Patch Tonight"
+          disabled={!applyAllowed}
+          onPress={() => router.push('/live' as never)}
+        />
+        {!applyAllowed ? (
+          <Text style={styles.applyBlockedHint}>
+            In your sleep window — adjust bedtime above.
+          </Text>
+        ) : null}
       </BlurView>
 
       <ScheduleTimePickerModal
@@ -209,4 +216,12 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
+  applyBlockedHint: {
+    marginTop: 12,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(245,245,247,0.5)',
+    textAlign: 'center',
+  },
 });
