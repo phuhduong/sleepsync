@@ -13,6 +13,9 @@ type Props = {
 
 let gradIdCounter = 0;
 
+/** Horizontal inset — Bed/Wake labels should use the same padding. */
+export const PROFILE_CURVE_PAD_X = 12;
+
 export function ProfileCurve({
   keyframes,
   width = 330,
@@ -21,7 +24,7 @@ export function ProfileCurve({
   mini = false,
 }: Props) {
   const colors = useCircadianColors();
-  const pad = { top: 12, right: 12, bottom: 12, left: 12 };
+  const pad = { top: 12, right: PROFILE_CURVE_PAD_X, bottom: 12, left: PROFILE_CURVE_PAD_X };
   const W = width - pad.left - pad.right;
   const H = height - pad.top - pad.bottom;
   const toX = (t: number) => pad.left + t * W;

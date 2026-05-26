@@ -2,22 +2,23 @@ import { Animated, Easing, View, Text, StyleSheet, Pressable, Modal, useWindowDi
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { GlassPanel } from '../components/GlassPanel';
 import { fonts } from '../theme/tokens';
 import { useAppNow, useCircadianColors } from '../theme/CircadianThemeProvider';
 import { formatDateAsClock } from '../theme/simulatedTime';
-import { findProfile, type Phase } from '../utils/profiles';
+import { OFFLINE_FALLBACK_PROFILE_ID, findProfile, type Phase } from '../utils/profiles';
 import { formatMinutesAsTime12h, clockMinutesFromDate } from '../utils/sleepSchedule';
 import type { SleepWindow } from '../utils/sleepWindow';
 import {
   formatDurationMinutes,
   isInActiveSleepWindow,
-  isSessionComplete,
   minutesSinceBed,
   minutesUntilBed,
-  profileTimelineT,
   resolveActiveSleepWindow,
 } from '../utils/sleepWindow';
+import { computeEngineSnapshot } from '../utils/profileEngine';
+import { flushDeliveryLog } from '../utils/flushDeliveryLog';
+import { getPatchTransport } from '../utils/patchTransportInstance';
 import { useAppState } from '../state/AppState';
 import { PatchSimulator } from '../components/PatchSimulator';
 import { SmallCapsLabel } from '../components/SmallCapsLabel';
@@ -121,14 +122,9 @@ export default function LiveScreen() {
           width: '100%',
           maxWidth: 390,
           alignSelf: 'center',
-          borderRadius: 24,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.09)',
           paddingHorizontal: 28,
           paddingTop: 28,
           paddingBottom: 22,
-          backgroundColor: 'rgba(12,13,18,0.88)',
         },
         confirmEyebrow: {
           marginBottom: 12,
@@ -183,9 +179,16 @@ export default function LiveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { selectedProfileId, bedtimeMinutes, wakeMinutes, pendingSession, setPendingSession } =
-    useAppState();
-  const profile = findProfile(selectedProfileId);
+  const {
+    bedtimeMinutes,
+    wakeMinutes,
+    pendingSession,
+    setPendingSession,
+    tonightPlan,
+    nightId,
+  } = useAppState();
+  /** Backend-generated profile, or standard maintenance when offline. */
+  const profile = tonightPlan?.profile ?? findProfile(OFFLINE_FALLBACK_PROFILE_ID);
   const colWidth = Math.min(width, 390);
   const appNow = useAppNow();
 
@@ -217,21 +220,20 @@ export default function LiveScreen() {
     if (pendingSessionSet.current) return;
     pendingSessionSet.current = true;
     setPendingSession({
-      profileId: selectedProfileId,
+      profileId: profile.id,
       startedAt: appNow.toISOString(),
     });
   }, [
-    selectedProfileId,
+    profile.id,
     appNow,
     setPendingSession,
     inSleepWindow,
     startedBeforeBed,
   ]);
 
-  /** Profile curve / phases: t = 0 at scheduled bedtime, t = 1 at scheduled wake. */
-  const elapsed = profileTimelineT(appNow, sleepWindow);
-  const beforeBed = appNow.getTime() < sleepWindow.bedtime.getTime();
-  const sessionEnded = isSessionComplete(appNow, sleepWindow);
+  /** Engine snapshot (t, dose, phase, etc.) — replaces inline loop. */
+  const snapshot = computeEngineSnapshot({ profile, sleepWindow, now: appNow });
+  const { t: elapsed, dose: currentDose, phaseIdx: currentPhaseIdx, phaseProgress, beforeBed, sessionEnded } = snapshot;
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -241,34 +243,28 @@ export default function LiveScreen() {
     finishedRef.current = false;
   }, []);
 
+  const goToDebrief = () => {
+    void flushDeliveryLog(getPatchTransport(), nightId).finally(() => {
+      router.replace('/debrief' as never);
+    });
+  };
+
   useEffect(() => {
     if (!sessionEnded || finishedRef.current) return;
     finishedRef.current = true;
-    router.replace('/debrief' as never);
-  }, [sessionEnded, router]);
+    goToDebrief();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionEnded]);
 
-  let cumulative = 0;
-  let currentPhaseIdx = 0;
-  let phaseProgress = 0;
-  let currentDose = 0;
-  for (let i = 0; i < profile.phases.length; i++) {
-    const ph = profile.phases[i];
-    if (elapsed < cumulative + ph.duration || i === profile.phases.length - 1) {
-      currentPhaseIdx = i;
-      phaseProgress = Math.min(1, (elapsed - cumulative) / ph.duration);
-      for (let j = 1; j < profile.keyframes.length; j++) {
-        if (elapsed <= profile.keyframes[j].t) {
-          const a = profile.keyframes[j - 1];
-          const b = profile.keyframes[j];
-          const f = (elapsed - a.t) / (b.t - a.t);
-          currentDose = a.dose + f * (b.dose - a.dose);
-          break;
-        }
-      }
-      break;
-    }
-    cumulative += ph.duration;
-  }
+  const transport = getPatchTransport();
+  useEffect(() => {
+    transport.pushSnapshot({
+      t: elapsed,
+      dose: currentDose,
+      phaseId: profile.phases[currentPhaseIdx]?.id,
+      at: appNow,
+    });
+  }, [elapsed, currentDose, currentPhaseIdx, profile.phases, appNow, transport]);
 
   const currentPhase = profile.phases[currentPhaseIdx];
   const nextPhase = profile.phases[currentPhaseIdx + 1];
@@ -306,6 +302,9 @@ export default function LiveScreen() {
       if (finished) setOutgoingPhase(null);
     });
   }, [currentPhaseIdx, profile.phases, inOpacity, outOpacity]);
+
+  // Phase progress is consumed by PhaseTimelineStrip — re-export for clarity.
+  const _phaseProgress = phaseProgress;
 
   const cancelHoldStart = () => {
     holdProgress.stopAnimation();
@@ -370,7 +369,7 @@ export default function LiveScreen() {
             </Text>
           </View>
         </View>
-        <PhaseTimelineStrip phases={profile.phases} currentIdx={currentPhaseIdx} phaseProgress={phaseProgress} />
+        <PhaseTimelineStrip phases={profile.phases} currentIdx={currentPhaseIdx} phaseProgress={_phaseProgress} />
         <Pressable
           onPressIn={cancelHoldStart}
           onPressOut={cancelHoldEnd}
@@ -411,7 +410,7 @@ export default function LiveScreen() {
             ]}
             pointerEvents="box-none"
           >
-            <BlurView intensity={28} tint="dark" style={styles.confirmGlass}>
+            <GlassPanel variant="modal" padded={false} style={styles.confirmGlass}>
               <SmallCapsLabel style={styles.confirmEyebrow}>Tonight · Live session</SmallCapsLabel>
               <Text style={styles.confirmHeading}>End delivery early?</Text>
               <Text style={styles.confirmBody}>
@@ -420,7 +419,7 @@ export default function LiveScreen() {
               <Pressable
                 onPress={() => {
                   setCancelConfirm(false);
-                  router.replace('/debrief' as never);
+                  goToDebrief();
                 }}
                 style={({ pressed }) => [styles.confirmDangerCta, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
@@ -436,7 +435,7 @@ export default function LiveScreen() {
               >
                 <Text style={styles.confirmSecondaryLabel}>Keep tonight&apos;s session running</Text>
               </Pressable>
-            </BlurView>
+            </GlassPanel>
           </View>
         </View>
       </Modal>

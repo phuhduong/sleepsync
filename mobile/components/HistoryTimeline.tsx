@@ -5,6 +5,7 @@ import { fonts } from '../theme/tokens';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import type { SessionRecord } from '../utils/profiles';
+import { sessionAccessibilityLabel, sessionListTitle } from '../utils/sessionDisplay';
 
 const RAIL_W = 44;
 const ROW_MIN_H = 96;
@@ -26,12 +27,11 @@ function TimelineRow({
   onPress: () => void;
 }) {
   const colors = useCircadianColors();
-  const good = session.outcome === 'good';
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${session.date}, ${session.profile}. Outcome ${good ? 'good' : 'fair or mixed'}. Tap for details.`}
+      accessibilityLabel={`${sessionAccessibilityLabel(session)} Tap for details.`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
@@ -46,9 +46,8 @@ function TimelineRow({
 
       <View style={styles.body}>
         <SmallCapsLabel style={{ marginBottom: 5 }}>{session.date}</SmallCapsLabel>
-        <Text style={[styles.profile, { color: colors.text }]}>{session.profile}</Text>
-        <Text style={[styles.summary, { color: colors.textSec }]} numberOfLines={2}>
-          {session.summary}
+        <Text style={[styles.profile, { color: colors.text }]} numberOfLines={2}>
+          {sessionListTitle(session)}
         </Text>
       </View>
 

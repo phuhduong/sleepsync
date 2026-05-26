@@ -1,18 +1,46 @@
-# Claude Code — local context, not shared
+# Local-only (agents, design notes, editor project state)
 CLAUDE.md
 .claude/
+.cursor/
+DESIGN_BRIEF.md
 
-# Environment / secrets (belt-and-braces; mobile/.gitignore also covers these)
+# Secrets & env — commit only *.env.example templates
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!**/.env.example
 
-# macOS
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local SQLite / demo persistence
+*.db
+backend/data/
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Editor / IDE
+# IDE
 .vscode/
 .idea/
-
-# Dev files
-DESIGN_BRIEF.md

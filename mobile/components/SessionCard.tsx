@@ -4,6 +4,7 @@ import { fonts } from '../theme/tokens';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import type { SessionRecord } from '../utils/profiles';
+import { sessionListTitle } from '../utils/sessionDisplay';
 
 type Props = {
   session: SessionRecord;
@@ -21,8 +22,9 @@ export function SessionCard({ session, onPress }: Props) {
     >
       <View style={{ flex: 1 }}>
         <SmallCapsLabel style={{ marginBottom: 4 }}>{session.date}</SmallCapsLabel>
-        <Text style={[styles.title, { color: colors.text }]}>{session.profile}</Text>
-        <Text style={[styles.summary, { color: colors.textSec }]}>{session.summary}</Text>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+          {sessionListTitle(session)}
+        </Text>
       </View>
       <View
         style={[

@@ -122,5 +122,3 @@ export const NIGHT_COLORS: ThemeColors = {
   ...SEMANTIC_COLORS,
 };
 
-/** @deprecated Use `useCircadianColors()` — static night fallback for non-React code. */
-export const colors = NIGHT_COLORS;

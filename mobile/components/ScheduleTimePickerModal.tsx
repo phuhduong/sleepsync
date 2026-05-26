@@ -1,7 +1,7 @@
 import { Modal, View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { GlassPanel } from './GlassPanel';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -50,12 +50,6 @@ export function ScheduleTimePickerModal({
     timeSheetGlass: {
       paddingHorizontal: 24,
       paddingTop: 22,
-      overflow: 'hidden',
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
-      borderTopWidth: 1,
-      borderTopColor: 'rgba(255,255,255,0.09)',
-      backgroundColor: 'rgba(12,13,18,0.82)',
     },
     timeSheetEyebrow: {
       marginBottom: 14,
@@ -165,7 +159,11 @@ export function ScheduleTimePickerModal({
               style={styles.modalBackdropFlex}
               onPress={onDismiss}
             />
-            <BlurView intensity={28} tint="dark" style={[styles.timeSheetGlass, { paddingBottom: 20 + insets.bottom }]}>
+            <GlassPanel
+              variant="sheetTop"
+              padded={false}
+              style={[styles.timeSheetGlass, { paddingBottom: 20 + insets.bottom }]}
+            >
               <SmallCapsLabel style={styles.timeSheetEyebrow}>{target === 'bed' ? 'Bedtime' : 'Wake'}</SmallCapsLabel>
               {Platform.OS === 'ios' ? (
                 <DateTimePicker
@@ -203,7 +201,7 @@ export function ScheduleTimePickerModal({
               <Pressable onPress={confirmPick} style={styles.timeDone}>
                 <Text style={styles.timeDoneText}>Done</Text>
               </Pressable>
-            </BlurView>
+            </GlassPanel>
           </View>
         </GestureHandlerRootView>
       </Modal>

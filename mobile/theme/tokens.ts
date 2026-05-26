@@ -1,4 +1,4 @@
-export { NIGHT_COLORS, colors, type ThemeColors } from './circadianPalettes';
+export { NIGHT_COLORS, type ThemeColors } from './circadianPalettes';
 export { hexToRgb, rgba } from './colorUtils';
 
 export const fonts = {

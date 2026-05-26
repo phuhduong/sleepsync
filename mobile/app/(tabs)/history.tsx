@@ -3,12 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { GlassPanel } from '../../components/GlassPanel';
 import Svg, { Circle } from 'react-native-svg';
 import { fonts, rgba } from '../../theme/tokens';
 import { useCircadianColors } from '../../theme/CircadianThemeProvider';
 import { useThemedStyles } from '../../theme/useThemedStyles';
-import { findProfile } from '../../utils/profiles';
+import { sessionKeyframes } from '../../utils/profiles';
+import { sessionDetailHeading, sessionDetailRationale } from '../../utils/sessionDisplay';
 import type { SessionRecord } from '../../utils/profiles';
 import { loadSessions, subscribeSessionLog } from '../../utils/sessionLog';
 import { SmallCapsLabel } from '../../components/SmallCapsLabel';
@@ -78,26 +79,16 @@ export default function HistoryScreen() {
       fontSize: 44,
       color: c.text,
       letterSpacing: -0.8,
+      marginBottom: 8,
+    },
+    detailSubtitle: {
+      fontFamily: fonts.body,
+      fontSize: 15,
+      lineHeight: 22,
       marginBottom: 24,
     },
-    sparkGlass: {
+    glassPanel: {
       marginTop: 20,
-      borderRadius: 20,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.09)',
-      backgroundColor: 'rgba(12,13,18,0.82)',
-    },
-    detailGlass: {
-      borderRadius: 20,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.09)',
-      backgroundColor: 'rgba(12,13,18,0.82)',
-    },
-    glassInner: {
-      paddingHorizontal: 16,
-      paddingVertical: 18,
     },
     statsRow: {
       marginTop: 28,
@@ -220,7 +211,8 @@ export default function HistoryScreen() {
 
   if (selected !== null) {
     const s = sessions.find((h) => h.id === selected)!;
-    const prof = findProfile(s.profileId);
+    const keyframes = sessionKeyframes(s);
+    const detailRationale = sessionDetailRationale(s);
     return (
       <MobileTabScreen aurora={false}>
         <ScrollView
@@ -229,14 +221,21 @@ export default function HistoryScreen() {
         >
           <BackButton onPress={() => setSelected(null)} label="History" />
           <SmallCapsLabel style={{ marginBottom: 8, marginTop: 16 }}>{s.date}</SmallCapsLabel>
-          <Text style={styles.detailTitle}>{s.profile}</Text>
+          <Text
+            style={[styles.detailTitle, !detailRationale && { marginBottom: 24 }]}
+          >
+            {sessionDetailHeading(s)}
+          </Text>
+          {detailRationale ? (
+            <Text style={[styles.detailSubtitle, { color: colors.textSec }]}>
+              {detailRationale}
+            </Text>
+          ) : null}
 
-          <BlurView intensity={28} tint="dark" style={styles.detailGlass}>
-            <View style={styles.glassInner}>
-              <SmallCapsLabel style={{ marginBottom: 12 }}>Delivery Profile</SmallCapsLabel>
-              <ProfileCurve keyframes={prof.keyframes} width={curveInnerW} height={120} />
-            </View>
-          </BlurView>
+          <GlassPanel style={styles.glassPanel}>
+            <SmallCapsLabel style={{ marginBottom: 12 }}>Delivery Profile</SmallCapsLabel>
+            <ProfileCurve keyframes={keyframes} width={curveInnerW} height={120} />
+          </GlassPanel>
 
           <View style={styles.statsRow}>
             <StatNumber
@@ -281,19 +280,17 @@ export default function HistoryScreen() {
         <SmallCapsLabel style={styles.eyebrow}>{EYEBROW}</SmallCapsLabel>
         <Text style={styles.heading}>History</Text>
 
-        <BlurView intensity={28} tint="dark" style={styles.sparkGlass}>
-          <View style={styles.glassInner}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-              <SmallCapsLabel>{grogginessTitle}</SmallCapsLabel>
-              <SmallCapsLabel>↓ trending better</SmallCapsLabel>
-            </View>
-            <SparkLine data={[...grogginess].reverse()} width={chartW} height={44} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-              <SmallCapsLabel>{oldestLabel}</SmallCapsLabel>
-              <SmallCapsLabel>{newestLabel}</SmallCapsLabel>
-            </View>
+        <GlassPanel style={styles.glassPanel}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+            <SmallCapsLabel>{grogginessTitle}</SmallCapsLabel>
+            <SmallCapsLabel>↓ trending better</SmallCapsLabel>
           </View>
-        </BlurView>
+          <SparkLine data={[...grogginess].reverse()} width={chartW} height={44} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+            <SmallCapsLabel>{oldestLabel}</SmallCapsLabel>
+            <SmallCapsLabel>{newestLabel}</SmallCapsLabel>
+          </View>
+        </GlassPanel>
 
         <View style={{ marginTop: 24 }}>
           <SmallCapsLabel style={{ marginBottom: 14 }}>Recent nights</SmallCapsLabel>

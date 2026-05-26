@@ -30,6 +30,29 @@ describe('buildSessionSummary', () => {
   });
 });
 
+describe('appendSession', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('persists keyframes for history detail', async () => {
+    const kf = [
+      { t: 0, dose: 0 },
+      { t: 0.5, dose: 0.9 },
+      { t: 1, dose: 0 },
+    ];
+    const record = await appendSession({
+      profileId: 'generated-abc',
+      profile: "Tonight's plan",
+      keyframes: kf,
+      woke: 'no',
+      groggy: 1,
+    });
+    const loaded = await loadSessions();
+    expect(loaded[0].keyframes).toEqual(kf);
+  });
+});
+
 describe('clearSessions', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
@@ -39,6 +62,7 @@ describe('clearSessions', () => {
     await appendSession({
       profileId: 'standard',
       profile: 'Standard',
+      keyframes: [{ t: 0, dose: 0 }, { t: 1, dose: 0 }],
       woke: 'no',
       groggy: 1,
     });

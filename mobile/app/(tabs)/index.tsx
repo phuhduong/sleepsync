@@ -1,19 +1,25 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { fonts } from '../../theme/tokens';
-import { useAppNow, useCircadianColors } from '../../theme/CircadianThemeProvider';
-import { findProfile } from '../../utils/profiles';
+import { useAppNow } from '../../theme/CircadianThemeProvider';
+import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../../utils/profiles';
 import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
 import { canApplyPatch } from '../../utils/sleepWindow';
 import { useAppState } from '../../state/AppState';
 import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
-import { SmallCapsLabel } from '../../components/SmallCapsLabel';
 import { PrimaryCTA } from '../../components/PrimaryCTA';
 import { StatNumber } from '../../components/StatNumber';
 import { ScheduleTimePickerModal } from '../../components/ScheduleTimePickerModal';
+import { useTonightPlan } from '../../utils/useTonightPlan';
+import { useGoogleHealth } from '../../utils/useGoogleHealth';
+import { GlassPanel } from '../../components/GlassPanel';
+import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCard';
+import { planStatusLine } from '../../utils/planCopy';
+import { loadSessions, subscribeSessionLog } from '../../utils/sessionLog';
+import { rollupsFromSessions } from '../../utils/rollupsFromSessions';
+import type { FeatureRollups } from '../../utils/apiTypes';
 
 const formatTime = (d: Date) =>
   d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -21,26 +27,49 @@ const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 export default function HomeScreen() {
-  const colors = useCircadianColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
-    selectedProfileId,
-    isFirstTime,
     bedtimeMinutes,
     setBedtimeMinutes,
     wakeMinutes,
     setWakeMinutes,
+    tonightPlan,
   } = useAppState();
-  const profile = findProfile(selectedProfileId);
+  const profile = tonightPlan?.profile ?? findProfile(OFFLINE_FALLBACK_PROFILE_ID);
+  const coldStart = tonightPlan?.metadata.coldStart ?? false;
 
   const appNow = useAppNow();
   const [pickerTarget, setPickerTarget] = useState<'bed' | 'wake' | null>(null);
+  const [focusKey, setFocusKey] = useState(0);
+  const [sessionRollups, setSessionRollups] = useState<FeatureRollups | undefined>();
+
+  const reloadRollups = useCallback(() => {
+    loadSessions().then((sessions) => setSessionRollups(rollupsFromSessions(sessions)));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocusKey((k) => k + 1);
+      reloadRollups();
+    }, [reloadRollups]),
+  );
+
+  useEffect(() => subscribeSessionLog(() => {
+    reloadRollups();
+    setFocusKey((k) => k + 1);
+  }), [reloadRollups]);
+
+  const { connected: googleHealthConnected } = useGoogleHealth();
+  const { status, source } = useTonightPlan({
+    appNow,
+    focusKey,
+    googleHealthConnected,
+    rollups: sessionRollups,
+  });
 
   const applyAllowed = canApplyPatch(appNow, bedtimeMinutes, wakeMinutes);
-
-  const planLabel = isFirstTime ? 'Welcome · First session' : "Tonight's plan";
-  const recommendedText = profile.recommended ? 'Recommended' : 'Custom';
+  const statusLine = planStatusLine({ tonightPlan, status, source, coldStart });
 
   return (
     <MobileTabScreen auroraInteractive>
@@ -55,36 +84,17 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.hero} pointerEvents="box-none">
-        <SmallCapsLabel
-          style={[{ marginBottom: 14, pointerEvents: 'none' }, isFirstTime && { color: colors.accent }]}
-        >
-          {planLabel}
-        </SmallCapsLabel>
-
         <Text style={styles.profileName} pointerEvents="none">
           {profile.name}
         </Text>
-        <Text style={styles.rationale} pointerEvents="none">
-          {profile.rationale}
+        <Text style={styles.statusLine} pointerEvents="none">
+          {statusLine}
         </Text>
-
-        <Pressable
-          onPress={() => router.push('/profile' as never)}
-          style={styles.changeLink}
-          hitSlop={6}
-        >
-          <Text style={[styles.changeLinkText, { color: colors.textSec }]}>
-            {recommendedText}{' '}
-            <Text style={{ color: colors.textTer }}>·</Text>{' '}
-            <Text style={[styles.changeLinkVerb, { color: colors.text }]}>Change profile</Text>
-          </Text>
-        </Pressable>
       </View>
 
-      <BlurView
-        intensity={28}
-        tint="dark"
-        style={[styles.glassCard, { paddingBottom: 28 + insets.bottom }]}
+      <GlassPanel
+        variant="sheetTop"
+        style={[styles.glassSheet, { paddingBottom: 28 + insets.bottom }]}
         pointerEvents="box-none"
       >
         <View style={styles.timeRow} pointerEvents="box-none">
@@ -116,6 +126,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        <GoogleHealthConnectCard compact />
         <PrimaryCTA
           label="Apply Patch Tonight"
           disabled={!applyAllowed}
@@ -123,10 +134,10 @@ export default function HomeScreen() {
         />
         {!applyAllowed ? (
           <Text style={styles.applyBlockedHint}>
-            In your sleep window — adjust bedtime above.
+            In your sleep window, adjust bedtime above
           </Text>
         ) : null}
-      </BlurView>
+      </GlassPanel>
 
       <ScheduleTimePickerModal
         target={pickerTarget}
@@ -183,39 +194,19 @@ const styles = StyleSheet.create({
     fontSize: 56,
     color: '#F5F5F7',
     letterSpacing: -0.5,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  rationale: {
+  statusLine: {
     fontFamily: fonts.body,
-    fontSize: 14,
-    color: 'rgba(245,245,247,0.62)',
+    fontSize: 15,
     lineHeight: 22,
-    maxWidth: 310,
+    maxWidth: 320,
+    color: 'rgba(245,245,247,0.62)',
   },
-  changeLink: {
-    marginTop: 14,
-    alignSelf: 'flex-start',
-  },
-  changeLinkText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-  },
-  changeLinkSep: {},
-  changeLinkVerb: {
-    fontFamily: fonts.bodyM,
-  },
-  glassCard: {
-    backgroundColor: 'rgba(12,13,18,0.82)',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.09)',
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    overflow: 'hidden',
+  glassSheet: {
     zIndex: 2,
   },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
   applyBlockedHint: {
     marginTop: 12,
     fontFamily: fonts.body,

@@ -1,23 +1,25 @@
 # SleepSync
 
-A personalized sleep optimization solution that utilizes real-time biometric data for adaptive melatonin dosing.
+Personalized overnight melatonin delivery — Expo app, FastAPI backend, optional ESP8266 patch.
 
-- Pulls HRV, resting heart rate, and respiratory rate from Fitbit API
-- Calculates melatonin dosage based on live biometric data  
-- Delivers dose via Arduino and ESP8266-controlled micro-pump  
-- Analyzes written user feedback with Google Gemini NLP to adjust algorithm for future doses
+## Team
 
-## Contributors
+- Charles Muehlberger — [@charlespers](https://github.com/charlespers)
+- Phu Duong — [@phuhduong](https://github.com/phuhduong)
+- Jaime Nunez — [@Jaimenunez10](https://github.com/Jaimenunez10)
+- Tom Wang — [@tom05919](https://github.com/tom05919)
 
-- Charles Muehlberger - [@charlespers](https://github.com/charlespers)
-- Phu Duong - [@phuhduong](https://github.com/phuhduong)
-- Jaime Nunez - [@Jaimenunez10](https://github.com/Jaimenunez10)
-- Tom Wang - [@tom05919](https://github.com/tom05919)
+## Quick start
 
-HackPrinceton Spring 2025
+See [`docs/RUNNING.md`](docs/RUNNING.md). API setup and Google OAuth: [`backend/README.md`](backend/README.md).
 
-## Tech Stack
+```bash
+# API
+cd backend && python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]" && uvicorn app.main:app --reload --port 8000
 
-- **Frontend**: React Native (Expo), TypeScript, Chart.js  
-- **Backend**: Node.js, Express, Fitbit API, Google Gemini API  
-- **Hardware**: ESP8266, Arduino, DC pump
+# App
+cd mobile && npm install && cp .env.example .env && npm start
+```
+
+Copy [`mobile/.env.example`](mobile/.env.example) and [`backend/.env.example`](backend/.env.example) as needed.

@@ -6,6 +6,7 @@ import { useCircadianDev, useCircadianTheme } from '../theme/CircadianThemeProvi
 import { formatDateAsClock, minutesSinceMidnight } from '../theme/simulatedTime';
 import { fonts } from '../theme/tokens';
 import { DEMO_FULL_SESSION_SECONDS } from '../utils/sessionDemo';
+import { clearCachedPlan, purgeDevBackend } from '../utils/apiClient';
 import { clearSessions } from '../utils/sessionLog';
 import { useAppState } from '../state/AppState';
 
@@ -15,7 +16,7 @@ import { useAppState } from '../state/AppState';
 export function CircadianDebugPanel() {
   const dev = useCircadianDev();
   const { phaseLabel, blendT, appNow } = useCircadianTheme();
-  const { clearPendingSession } = useAppState();
+  const { clearPendingSession, setTonightPlan } = useAppState();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
@@ -39,7 +40,10 @@ export function CircadianDebugPanel() {
     setClearingHistory(true);
     try {
       await clearSessions();
+      await clearCachedPlan();
+      await purgeDevBackend();
       clearPendingSession();
+      setTonightPlan(null);
       setClearHistoryArmed(false);
     } catch (e) {
       if (__DEV__) console.warn('[dev] clear history failed', e);
@@ -141,7 +145,8 @@ export function CircadianDebugPanel() {
 
           <View style={styles.sectionDivider} />
           <Text style={styles.sectionLabel}>
-            History — clears AsyncStorage (@sleepsync/sessions). History tab updates immediately.
+            History — clears local sessions, cached plan, and backend SQLite for this user
+            (nights, features, Google Health connection). History tab updates immediately.
           </Text>
           <View style={styles.clearRow}>
             <Pressable

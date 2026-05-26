@@ -4,13 +4,12 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "expo export --platform web",
-    "deploy": "gh-pages -d dist",
     "test": "jest --watchAll",
+    "test:ci": "jest --watchAll=false --ci",
     "lint": "expo lint",
     "skia:web": "npx setup-skia-web"
   },

@@ -1,20 +1,10 @@
-# VS Code settings
-.vscode/
+# Expo / React Native (see root .gitignore for .env, node_modules, dist)
 
-# macOS
-.DS_Store
-*.pem
-
-# Dependencies
-node_modules/
-
-# Expo
 .expo/
-dist/
 expo-env.d.ts
 
-# Native
-*.orig.*
+# Signing & secrets
+*.pem
 *.jks
 *.p8
 *.p12
@@ -24,14 +14,5 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
-# Debug logs
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# Local environment files
-.env*
-.env*.local
-
-# TypeScript build info
-*.tsbuildinfo
+# Native merge artifacts
+*.orig.*

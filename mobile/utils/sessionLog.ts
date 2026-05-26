@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SessionRecord, SessionWoke } from './profiles';
+import type { Keyframe, SessionRecord, SessionWoke } from './profiles';
 
 const STORAGE_KEY = '@sleepsync/sessions';
 
@@ -26,6 +26,10 @@ function notifySessionLogChanged(): void {
 export type NewSessionInput = {
   profileId: string;
   profile: string;
+  keyframes: Keyframe[];
+  rationale?: string;
+  bedtimeMinutes?: number;
+  wakeMinutes?: number;
   woke: SessionWoke;
   groggy: number;
   note?: string;
@@ -85,6 +89,10 @@ export async function appendSession(input: NewSessionInput): Promise<SessionReco
     date: formatSessionDate(completedAt),
     profileId: input.profileId,
     profile: input.profile,
+    keyframes: input.keyframes,
+    rationale: input.rationale,
+    bedtimeMinutes: input.bedtimeMinutes,
+    wakeMinutes: input.wakeMinutes,
     woke: input.woke,
     groggy: input.groggy,
     note: input.note?.trim() || undefined,

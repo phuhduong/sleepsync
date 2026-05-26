@@ -10,8 +10,15 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { DotScale } from '../components/DotScale';
 import { PrimaryCTA } from '../components/PrimaryCTA';
 import { useAppState } from '../state/AppState';
-import { findProfile } from '../utils/profiles';
+import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../utils/profiles';
 import { appendSession } from '../utils/sessionLog';
+import { planRationaleLine } from '../utils/planCopy';
+import { syncDebrief } from '../utils/apiClient';
+import { syncGoogleHealthOutcomeAfterDebrief } from '../utils/googleHealthOutcomeSync';
+import { flushDeliveryLog } from '../utils/flushDeliveryLog';
+import { getPatchTransport } from '../utils/patchTransportInstance';
+import { getUserId } from '../utils/identity';
+import { useGoogleHealth } from '../utils/useGoogleHealth';
 import type { SessionWoke } from '../utils/profiles';
 
 type Woke = SessionWoke;
@@ -70,8 +77,10 @@ export default function DebriefScreen() {
   const {
     pendingSession,
     clearPendingSession,
-    selectedProfileId,
-    setIsFirstTime,
+    nightId,
+    tonightPlan,
+    bedtimeMinutes,
+    wakeMinutes,
   } = useAppState();
 
   const [woke, setWoke] = useState<Woke | null>(null);
@@ -81,6 +90,7 @@ export default function DebriefScreen() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { connected: googleHealthConnected } = useGoogleHealth();
 
   const canSave = woke !== null && groggy !== null;
 
@@ -93,18 +103,59 @@ export default function DebriefScreen() {
     if (!canSave || saving || saved) return;
     setSaving(true);
     setSaveError(null);
-    const profileId = pendingSession?.profileId ?? selectedProfileId;
-    const prof = findProfile(profileId);
+    const prof =
+      tonightPlan?.profile ??
+      findProfile(pendingSession?.profileId ?? OFFLINE_FALLBACK_PROFILE_ID);
+    const trimmedNote = note.trim() || undefined;
+    const startedAt = pendingSession?.startedAt ?? new Date().toISOString();
     try {
-      await appendSession({
-        profileId,
+      const record = await appendSession({
+        profileId: prof.id,
         profile: prof.name,
+        keyframes: prof.keyframes,
+        rationale: planRationaleLine(prof.rationale),
+        bedtimeMinutes,
+        wakeMinutes,
         woke: woke!,
         groggy: groggy!,
-        note: note.trim() || undefined,
+        note: trimmedNote,
       });
+      // Sync to backend if a night was generated. Local save is the source of
+      // truth; we don't block the user on backend success.
+      if (nightId) {
+        await flushDeliveryLog(getPatchTransport(), nightId);
+        try {
+          const userId = await getUserId();
+          await syncDebrief(nightId, {
+            userId,
+            woke: woke!,
+            groggy: groggy!,
+            note: trimmedNote,
+            completedAt: record.completedAt,
+            profileId: prof.id,
+            startedAt,
+          });
+          if (googleHealthConnected) {
+            try {
+              await syncGoogleHealthOutcomeAfterDebrief({
+                nightId,
+                bedtimeMinutes,
+                wakeMinutes,
+                now: new Date(record.completedAt),
+              });
+            } catch (outcomeErr) {
+              if (typeof __DEV__ !== 'undefined' && __DEV__) {
+                console.warn('[debrief] google health outcome sync failed', outcomeErr);
+              }
+            }
+          }
+        } catch (syncErr) {
+          if (typeof __DEV__ !== 'undefined' && __DEV__) {
+            console.warn('[debrief] backend sync failed', syncErr);
+          }
+        }
+      }
       clearPendingSession();
-      setIsFirstTime(false);
       setSaved(true);
       setTimeout(() => router.replace('/' as never), 1200);
     } catch (e) {
