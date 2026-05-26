@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, OpenSans_400Regular, OpenSans_500Medium, OpenSans_600SemiBold } from '@expo-google-fonts/open-sans';
 import { CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NIGHT_COLORS } from '../theme/circadianPalettes';
@@ -35,12 +35,22 @@ export default function RootLayout() {
     OpenSans_600SemiBold,
     CormorantGaramond_600SemiBold,
   });
+  const [fontsTimedOut, setFontsTimedOut] = useState(false);
+  const ready = fontsLoaded || fontsTimedOut;
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded]);
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
 
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: NIGHT_COLORS.bg }} />;
+  // Blocked font CDNs on web can leave fontsLoaded false — mount UI with system fallbacks.
+  useEffect(() => {
+    const t = setTimeout(() => setFontsTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: NIGHT_COLORS.bg }} />;
+  }
 
   return (
     <SafeAreaProvider>

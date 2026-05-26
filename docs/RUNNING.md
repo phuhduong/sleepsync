@@ -47,6 +47,9 @@ npm start
 # then press i (iOS sim), a (Android), or w (web)
 ```
 
+**Web UI URL:** [http://localhost:8081](http://localhost:8081) — not port 8000.  
+Port **8000** is the API only (`/healthz`, `/docs`). Opening `http://localhost:8000/` in a browser shows API metadata, not the app.
+
 ## 3. Tonight tab
 
 1. Open **Tonight** — status should show personalized plan or offline fallback.
@@ -81,6 +84,7 @@ Restart the API after manually deleting `backend/data/sleepsync.db` if you want 
 
 | Issue | Fix |
 |-------|-----|
+| Black / empty browser | Use **http://localhost:8081** (Expo), not :8000 (API). Wait for Metro “Web Bundled”, then reload. |
 | Plan stuck loading | Start backend; check `EXPO_PUBLIC_API_URL` |
 | Apply disabled | Set simulated time **before** bedtime |
 | CORS on web | Backend allows localhost; use LAN IP for odd setups |

@@ -20,6 +20,13 @@ def test_healthz(client):
     assert "riskModel" in body and "optimizer" in body
 
 
+def test_root_points_to_expo_web(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert "localhost:8081" in r.text
+
+
 def test_cors_allows_expo_web_origin(client):
     origin = "http://localhost:8081"
     r = client.options(

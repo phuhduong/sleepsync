@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from models.schemas import HealthResponse
 
@@ -52,6 +53,31 @@ def create_app() -> FastAPI:
             riskModel=config.versions.risk_model,
             optimizer=config.versions.optimizer,
         )
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def root() -> str:
+        """Avoid a blank browser tab when someone opens the API port by mistake."""
+        return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SleepSync API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b0c10; color: #e8e6e3;
+           max-width: 36rem; margin: 3rem auto; padding: 0 1.25rem; line-height: 1.5; }
+    a { color: #9b8cff; }
+    code { background: #1a1c24; padding: 0.15em 0.4em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>SleepSync API</h1>
+  <p>This port serves the JSON backend only — not the mobile UI.</p>
+  <p>Open the Expo app at <a href="http://localhost:8081">http://localhost:8081</a>
+     after <code>cd mobile &amp;&amp; npm start</code> (press <strong>w</strong> for web).</p>
+  <p>API docs: <a href="/docs">/docs</a> · health: <a href="/healthz">/healthz</a></p>
+</body>
+</html>"""
 
     return app
 
