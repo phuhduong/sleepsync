@@ -3,15 +3,10 @@
  *
  * Live OAuth: Google redirects to the backend https callback; the backend
  * exchanges the code and redirects to this app's return URI (deep link or web).
- * Sandbox (no OAuth client configured): completes via POST without a browser.
  */
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import {
-  getGoogleHealthAuthorizeUrl,
-  getGoogleHealthStatus,
-  postGoogleHealthCallback,
-} from './apiClient';
+import { getGoogleHealthAuthorizeUrl, getGoogleHealthStatus } from './apiClient';
 import type { GoogleHealthStatus } from './apiTypes';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -39,15 +34,6 @@ export async function connectGoogleHealth(): Promise<ConnectResult> {
   try {
     const returnUri = Linking.createURL(CALLBACK_PATH);
     const authz = await getGoogleHealthAuthorizeUrl(returnUri);
-
-    if (authz.sandbox) {
-      const status = await postGoogleHealthCallback({
-        code: 'sandbox',
-        state: authz.state,
-      });
-      return { ok: true, status };
-    }
-
     const result = await WebBrowser.openAuthSessionAsync(authz.authorizeUrl, returnUri);
     if (result.type !== 'success' || !result.url) {
       return { ok: false, reason: 'cancelled' };

@@ -114,6 +114,61 @@ class SqliteDB:
             ).fetchone()
             return int(row["c"]) if row else 0
 
+    def google_feature_count_for_user(self, user_id: str) -> int:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT payload_json FROM feature_sets WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+            count = 0
+            for row in rows:
+                payload = self._load(FeaturesPayload, row["payload_json"])
+                if payload.source == "google_health":
+                    count += 1
+            return count
+
+    def list_recent_feature_sets(
+        self, user_id: str, k: int = 7
+    ) -> list[FeaturesPayload]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT payload_json FROM feature_sets
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (user_id, max(k * 3, k)),
+            ).fetchall()
+            out: list[FeaturesPayload] = []
+            for row in rows:
+                if len(out) >= k:
+                    break
+                payload = self._load(FeaturesPayload, row["payload_json"])
+                if payload.source == "google_health":
+                    out.append(payload)
+            return out
+
+    def list_recent_debriefs(self, user_id: str, k: int = 7) -> list[DebriefRequest]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT payload_json FROM nights
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT 80
+                """,
+                (user_id,),
+            ).fetchall()
+            debriefs: list[tuple[datetime, DebriefRequest]] = []
+            for row in rows:
+                night = self._load(NightRecord, row["payload_json"])
+                if night.debrief is None:
+                    continue
+                debriefs.append((night.debrief.completedAt, night.debrief))
+            debriefs.sort(key=lambda x: x[0], reverse=True)
+            return [d for _, d in debriefs[:k]]
+
     def purge_user_data(self, user_id: str) -> None:
         """Dev reset — remove all persisted rows for one user."""
         with self._lock:

@@ -17,9 +17,7 @@ import { useGoogleHealth } from '../../utils/useGoogleHealth';
 import { GlassPanel } from '../../components/GlassPanel';
 import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCard';
 import { planStatusLine } from '../../utils/planCopy';
-import { loadSessions, subscribeSessionLog } from '../../utils/sessionLog';
-import { rollupsFromSessions } from '../../utils/rollupsFromSessions';
-import type { FeatureRollups } from '../../utils/apiTypes';
+import { subscribeSessionLog } from '../../utils/sessionLog';
 
 const formatTime = (d: Date) =>
   d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -37,39 +35,34 @@ export default function HomeScreen() {
     tonightPlan,
   } = useAppState();
   const profile = tonightPlan?.profile ?? findProfile(OFFLINE_FALLBACK_PROFILE_ID);
-  const coldStart = tonightPlan?.metadata.coldStart ?? false;
 
   const appNow = useAppNow();
   const [pickerTarget, setPickerTarget] = useState<'bed' | 'wake' | null>(null);
   const [focusKey, setFocusKey] = useState(0);
-  const [sessionRollups, setSessionRollups] = useState<FeatureRollups | undefined>();
-
-  const reloadRollups = useCallback(() => {
-    loadSessions().then((sessions) => setSessionRollups(rollupsFromSessions(sessions)));
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       setFocusKey((k) => k + 1);
-      reloadRollups();
-    }, [reloadRollups]),
+    }, []),
   );
 
   useEffect(() => subscribeSessionLog(() => {
-    reloadRollups();
     setFocusKey((k) => k + 1);
-  }), [reloadRollups]);
+  }), []);
 
-  const { connected: googleHealthConnected } = useGoogleHealth();
+  const gh = useGoogleHealth();
   const { status, source } = useTonightPlan({
     appNow,
     focusKey,
-    googleHealthConnected,
-    rollups: sessionRollups,
+    googleHealthConnected: gh.connected,
   });
 
   const applyAllowed = canApplyPatch(appNow, bedtimeMinutes, wakeMinutes);
-  const statusLine = planStatusLine({ tonightPlan, status, source, coldStart });
+  const statusLine = planStatusLine({
+    tonightPlan,
+    status,
+    source,
+    ghStatus: gh.status,
+  });
 
   return (
     <MobileTabScreen auroraInteractive>
@@ -126,7 +119,11 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <GoogleHealthConnectCard compact />
+        <GoogleHealthConnectCard
+          compact
+          connectionOnly
+          planLoading={status === 'loading' && !tonightPlan}
+        />
         <PrimaryCTA
           label="Apply Patch Tonight"
           disabled={!applyAllowed}
@@ -206,7 +203,7 @@ const styles = StyleSheet.create({
   glassSheet: {
     zIndex: 2,
   },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
+  timeRow: { flexDirection: 'row', alignItems: 'center' },
   applyBlockedHint: {
     marginTop: 12,
     fontFamily: fonts.body,

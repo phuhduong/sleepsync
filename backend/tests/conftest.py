@@ -1,6 +1,13 @@
 """Shared pytest fixtures."""
 from __future__ import annotations
 
+import os
+
+# Keep pytest hermetic — do not load developer backend/.env (would flip Google Health live).
+os.environ["SLEEPSYNC_SKIP_DOTENV"] = "1"
+os.environ.pop("GOOGLE_OAUTH_CLIENT_ID", None)
+os.environ.pop("GOOGLE_OAUTH_CLIENT_SECRET", None)
+
 import pytest
 from fastapi.testclient import TestClient
 

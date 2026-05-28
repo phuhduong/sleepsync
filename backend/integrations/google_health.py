@@ -1,18 +1,10 @@
-"""Google Health API OAuth, REST reader, and sandbox fixtures.
+"""Google Health API OAuth, REST reader, and test helpers.
 
-Modes (``GoogleHealthConfig.sandbox``):
+Live path: OAuth 2.0 + REST, window-normalized :class:`FeaturesPayload`
+(``source=google_health``). :func:`synthetic_features` is for unit tests only.
 
-* **live** — real Google OAuth 2.0 + REST. Refreshes the access token, pulls
-  the most recent sleep session plus heart-rate / HRV samples, and bins them
-  into a window-normalized :class:`FeaturesPayload` (``source=google_health``).
-* **sandbox** — deterministic synthetic data per user, so the whole
-  connect → sync → plan flow runs without real Google credentials.
-
-The OAuth + HTTP plumbing only runs in live mode; the binning
-(:func:`build_intervals_from_samples`) and synthetic generator
-(:func:`synthetic_features`) are pure and unit-tested. The exact Google Health
-data-type response shape is new and may need tweaking in :func:`_parse_*`;
-those parsers are isolated so the binning logic stays stable.
+The exact Google Health data-type response shape may need tweaking in
+:func:`_parse_*`; those parsers are isolated so binning stays stable.
 """
 from __future__ import annotations
 
@@ -73,12 +65,13 @@ def make_state() -> str:
 
 
 def authorize_url(config: GoogleHealthConfig, state: str, redirect_uri: str) -> str:
-    """Google OAuth 2.0 consent URL. In sandbox we still return a URL shape, but
-    the caller decides to short-circuit the browser (see the service layer)."""
+    """Google OAuth 2.0 consent URL."""
     from urllib.parse import urlencode
 
+    if not config.client_id:
+        raise GoogleHealthError("Google OAuth client_id is not configured")
     params = {
-        "client_id": config.client_id or "sandbox-client",
+        "client_id": config.client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "access_type": "offline",
@@ -93,8 +86,6 @@ def authorize_url(config: GoogleHealthConfig, state: str, redirect_uri: str) -> 
 def exchange_code(
     config: GoogleHealthConfig, code: str, redirect_uri: str
 ) -> TokenBundle:
-    if config.sandbox:
-        return _sandbox_tokens(config)
     return _token_request(
         config,
         {
@@ -111,8 +102,6 @@ def exchange_code(
 def refresh_access_token(
     config: GoogleHealthConfig, refresh_token: str
 ) -> TokenBundle:
-    if config.sandbox:
-        return _sandbox_tokens(config, refresh_token=refresh_token)
     return _token_request(
         config,
         {
@@ -127,7 +116,7 @@ def refresh_access_token(
 
 
 def revoke(config: GoogleHealthConfig, refresh_token: str) -> None:
-    if config.sandbox or not refresh_token:
+    if not refresh_token:
         return
     import httpx
 
@@ -140,17 +129,6 @@ def revoke(config: GoogleHealthConfig, refresh_token: str) -> None:
         )
     except Exception:  # best-effort revoke; never raise on disconnect
         pass
-
-
-def _sandbox_tokens(
-    config: GoogleHealthConfig, refresh_token: str | None = None
-) -> TokenBundle:
-    return TokenBundle(
-        access_token=f"sandbox-access-{secrets.token_hex(8)}",
-        refresh_token=refresh_token or f"sandbox-refresh-{secrets.token_hex(8)}",
-        scopes=list(config.scopes),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-    )
 
 
 def _token_request(
@@ -216,11 +194,6 @@ def fetch_window_features(
 ) -> FeaturesPayload:
     """Build a window-normalized FeaturesPayload from Google Health data."""
     grid = interval_count_for_window(bedtime_minutes, wake_minutes)
-    if config.sandbox:
-        return synthetic_features(
-            user_id, bedtime_minutes, wake_minutes, timezone_name, reference_now, grid
-        )
-
     window_start, window_end = _last_night_window(bedtime_minutes, wake_minutes, reference_now)
     segments, vitals, rollups = _fetch_live(
         config, access_token, window_start, window_end
@@ -252,26 +225,6 @@ def fetch_outcome(
     """Post-wake summary from the most recent completed sleep session."""
     grid = interval_count_for_window(bedtime_minutes, wake_minutes)
     window_start, window_end = _last_night_window(bedtime_minutes, wake_minutes, reference_now)
-
-    if config.sandbox:
-        payload = synthetic_features(
-            user_id, bedtime_minutes, wake_minutes, "UTC", reference_now, grid
-        )
-        awake_mins = sum(iv.minutesAwake or 0.0 for iv in payload.intervals)
-        window_mins = sleep_window_duration_minutes(bedtime_minutes, wake_minutes)
-        efficiency = max(0.0, 1.0 - awake_mins / max(window_mins, 1))
-        return WearableOutcomeRequest(
-            userId=user_id,
-            bedtimeMinutes=bedtime_minutes,
-            wakeMinutes=wake_minutes,
-            actualBedtime=window_start,
-            actualWake=window_end,
-            efficiency=round(efficiency, 3),
-            minutesAwake=round(awake_mins, 1),
-            fragmentationIndex=round(min(1.0, awake_mins / max(window_mins, 1)), 3),
-            intervals=payload.intervals,
-        )
-
     segments, vitals, _ = _fetch_live(config, access_token, window_start, window_end)
     intervals = build_intervals_from_samples(window_start, window_end, segments, vitals, grid)
     awake_mins = sum(iv.minutesAwake or 0.0 for iv in intervals)

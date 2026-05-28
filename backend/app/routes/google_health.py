@@ -10,6 +10,8 @@ from fastapi.responses import RedirectResponse
 
 from app.config import AppConfig, get_config
 from app.services_google_health import (
+    InsufficientSleepDataError,
+    GoogleHealthNotConfiguredError,
     NotConnectedError,
     OAuthStateError,
     complete_callback,
@@ -58,7 +60,10 @@ def authorize(
     x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> GoogleHealthAuthorizeResponse:
     app_return = returnUri or redirectUri
-    return start_authorize(repo, config, _require_user(x_user_id), app_return)
+    try:
+        return start_authorize(repo, config, _require_user(x_user_id), app_return)
+    except GoogleHealthNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/oauth/callback")
@@ -110,8 +115,9 @@ def sync_features(
     try:
         return sync(repo, config, user_id, req)
     except NotConnectedError as exc:
-        # 409 signals mobile to fall back to the mock feature upload.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except InsufficientSleepDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"sync failed: {exc}") from exc
 

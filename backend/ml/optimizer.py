@@ -218,7 +218,7 @@ def _build_profile(
     ]
     return Profile(
         id=profile_id or "generated",
-        name="Tonight's plan",
+        name="Tonight's Plan",
         recommended=True,
         rationale=rationale,
         keyframes=keyframes,

@@ -174,7 +174,7 @@ export default function DebriefScreen() {
       contentContainerStyle={{ paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: 32 + insets.bottom }}
     >
       <SmallCapsLabel style={{ marginBottom: 10 }}>Morning Debrief</SmallCapsLabel>
-      <Text style={styles.heading}>Good{'\n'}morning</Text>
+      <Text style={styles.heading}>Good{'\n'}Morning</Text>
 
       <View style={{ marginTop: 36 }}>
         <Text style={styles.qLabel}>Did you wake during the night?</Text>

@@ -12,6 +12,22 @@ import yaml
 from ml.optimizer import OptimizerConfig
 
 
+def _load_dotenv() -> None:
+    """Load ``backend/.env`` when present. Shell env vars take precedence."""
+    if os.environ.get("SLEEPSYNC_SKIP_DOTENV") == "1":
+        return
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.is_file():
+        load_dotenv(env_path, override=False)
+
+
+_load_dotenv()
+
+
 @dataclass
 class RiskConfig:
     grid_size: int = 32
@@ -44,16 +60,14 @@ _DEFAULT_GH_SCOPES = (
 class GoogleHealthConfig:
     """Google Health API OAuth and REST settings.
 
-    Secrets are read from the environment, never config.yaml. When the OAuth
-    client is not configured (or ``sandbox`` is true) the backend serves
-    synthetic ``google_health`` data so the connect→sync→plan flow is testable
-    without real Google credentials. See backend/README.md.
+    Secrets are read from the environment, never config.yaml. Connect and sync
+    require a configured OAuth client. See backend/README.md.
     """
 
     client_id: str = ""
     client_secret: str = ""
     # Google OAuth redirect (https) — register this exact URI on the Web server client.
-    redirect_uri: str = "https://localhost:8000/v1/google-health/oauth/callback"
+    redirect_uri: str = "http://127.0.0.1:8000/v1/google-health/oauth/callback"
     # Where to send the user after the backend finishes the code exchange.
     app_return_uri: str = "sleepsync://google-health/callback"
     token_encryption_key: str = ""
@@ -62,17 +76,11 @@ class GoogleHealthConfig:
     revoke_url: str = "https://oauth2.googleapis.com/revoke"
     api_base: str = "https://health.googleapis.com/v4"
     scopes: list[str] = field(default_factory=lambda: list(_DEFAULT_GH_SCOPES))
-    sandbox_flag: bool = False
 
     @property
     def configured(self) -> bool:
-        """True when a real OAuth client is available for live token exchange."""
+        """True when a real OAuth client is available for token exchange."""
         return bool(self.client_id and self.client_secret)
-
-    @property
-    def sandbox(self) -> bool:
-        """Serve synthetic data when explicitly enabled or no client configured."""
-        return self.sandbox_flag or not self.configured
 
 
 @dataclass
@@ -151,14 +159,5 @@ def get_config() -> AppConfig:
             revoke_url=str(gh_raw.get("revoke_url", GoogleHealthConfig().revoke_url)),
             api_base=str(gh_raw.get("api_base", GoogleHealthConfig().api_base)),
             scopes=[str(s) for s in gh_raw.get("scopes", list(_DEFAULT_GH_SCOPES))],
-            # Env override lets you force sandbox in any deployment.
-            sandbox_flag=_env_bool("GOOGLE_HEALTH_SANDBOX", bool(gh_raw.get("sandbox", False))),
         ),
     )
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}

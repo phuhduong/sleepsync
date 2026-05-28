@@ -10,6 +10,7 @@ import { NIGHT_COLORS } from '../theme/circadianPalettes';
 import { CircadianDebugPanel } from '../components/CircadianDebugPanel';
 import { CircadianThemeProvider, useCircadianTheme } from '../theme/CircadianThemeProvider';
 import { AppStateProvider } from '../state/AppState';
+import { GoogleHealthProvider } from '../state/GoogleHealthContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -56,7 +57,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <CircadianThemeProvider>
         <AppStateProvider>
-          <RootNavigator />
+          <GoogleHealthProvider>
+            <RootNavigator />
+          </GoogleHealthProvider>
         </AppStateProvider>
       </CircadianThemeProvider>
     </SafeAreaProvider>

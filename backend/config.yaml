@@ -45,8 +45,8 @@ google_health:
   token_url: "https://oauth2.googleapis.com/token"
   revoke_url: "https://oauth2.googleapis.com/revoke"
   api_base: "https://health.googleapis.com/v4"
-  # Register this https URI on your Google OAuth Web server client.
-  redirect_uri: "https://localhost:8000/v1/google-health/oauth/callback"
+  # Register this exact URI on your Google OAuth Web server client (see docs/GOOGLE_HEALTH.md).
+  redirect_uri: "http://127.0.0.1:8000/v1/google-health/oauth/callback"
   # Deep link or web URL opened after the backend exchanges the code (Expo scheme).
   app_return_uri: "sleepsync://google-health/callback"
   # Restricted scopes (sleep / heart rate / HRV). Confirm exact strings against
@@ -54,7 +54,3 @@ google_health:
   scopes:
     - "https://www.googleapis.com/auth/googlehealth.sleep.readonly"
     - "https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly"
-  # When true, OR when client id/secret are absent, the backend serves synthetic
-  # google_health-sourced data so the whole connect→sync→plan flow is testable
-  # without real Google credentials. Set false + provide secrets for live OAuth.
-  sandbox: false

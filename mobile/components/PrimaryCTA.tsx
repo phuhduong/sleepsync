@@ -1,4 +1,4 @@
-import { Pressable, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { Pressable, Text, StyleSheet, ViewStyle, StyleProp, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { fonts } from '../theme/tokens';
@@ -8,6 +8,7 @@ type Props = {
   label: string;
   onPress?: () => void;
   disabled?: boolean;
+  loading?: boolean;
   style?: StyleProp<ViewStyle>;
   /** Pill gradient (legacy), or frosted neutral-grey glass (default — matches Tonight CTA). */
   variant?: 'gradient' | 'glassDark';
@@ -20,16 +21,31 @@ const FILL_DISABLED = ['#2E3038', '#26282E'] as const;
 /**
  * Primary CTA — default is frosted neutral-grey glass (`glassDark`). Pass `variant="gradient"` for the legacy plum-gray gradient pill.
  */
-export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 'glassDark' }: Props) {
+export function PrimaryCTA({
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+  style,
+  variant = 'glassDark',
+}: Props) {
   const colors = useCircadianColors();
+  const inactive = disabled || loading;
+
+  const labelNode = loading ? (
+    <ActivityIndicator size="small" color={colors.text} />
+  ) : (
+    <Text style={[styles.label, inactive && { color: colors.textTer }]}>{label}</Text>
+  );
+
   if (variant === 'gradient') {
     return (
       <Pressable
-        onPress={disabled ? undefined : onPress}
-        disabled={disabled}
+        onPress={inactive ? undefined : onPress}
+        disabled={inactive}
         style={({ pressed }) => [
           styles.hit,
-          !disabled && {
+          !inactive && {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: pressed ? 0.22 : 0.32,
@@ -37,17 +53,17 @@ export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 
             elevation: pressed ? 4 : 6,
             transform: [{ scale: pressed ? 0.985 : 1 }],
           },
-          disabled && { elevation: 0, shadowOpacity: 0 },
+          inactive && { elevation: 0, shadowOpacity: 0 },
           style,
         ]}
       >
         <LinearGradient
-          colors={[...(disabled ? FILL_DISABLED : FILL)]}
+          colors={[...(inactive ? FILL_DISABLED : FILL)]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.fill}
         >
-          <Text style={[styles.label, disabled && { color: colors.textTer }]}>{label}</Text>
+          {labelNode}
         </LinearGradient>
       </Pressable>
     );
@@ -55,12 +71,12 @@ export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 
 
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
+      onPress={inactive ? undefined : onPress}
+      disabled={inactive}
       style={({ pressed }) => [
         styles.hit,
         styles.hitGlass,
-        !disabled && {
+        !inactive && {
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: pressed ? 0.18 : 0.26,
@@ -68,12 +84,16 @@ export function PrimaryCTA({ label, onPress, disabled = false, style, variant = 
           elevation: pressed ? 3 : 5,
           transform: [{ scale: pressed ? 0.985 : 1 }],
         },
-        disabled && { elevation: 0, shadowOpacity: 0, opacity: 0.55 },
+        inactive && { elevation: 0, shadowOpacity: 0, opacity: 0.55 },
         style,
       ]}
     >
-      <BlurView intensity={18} tint="dark" style={[styles.glassDarkFill, disabled && styles.glassDarkFillDisabled]}>
-        <Text style={[styles.label, disabled && { color: colors.textTer }]}>{label}</Text>
+      <BlurView
+        intensity={18}
+        tint="dark"
+        style={[styles.glassDarkFill, inactive && styles.glassDarkFillDisabled]}
+      >
+        {labelNode}
       </BlurView>
     </Pressable>
   );

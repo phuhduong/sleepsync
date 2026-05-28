@@ -23,7 +23,13 @@ from security.token_cipher import get_token_cipher
 from storage.oauth import OAuthPending
 from storage.repositories import Repository
 
+from ml.sleep_sufficiency import assess_sufficient
+
 from .config import AppConfig
+
+
+class InsufficientSleepDataError(RuntimeError):
+    """Google returned a window without enough staged sleep for personalization."""
 
 
 class OAuthStateError(RuntimeError):
@@ -34,17 +40,18 @@ class NotConnectedError(RuntimeError):
     """No stored Google Health connection for this user."""
 
 
+class GoogleHealthNotConfiguredError(RuntimeError):
+    """OAuth client id/secret are not set on the server."""
+
+
 def get_status(repo: Repository, config: AppConfig, user_id: str) -> GoogleHealthStatus:
     conn = repo.db.get_connection(user_id)
     if conn is None:
-        return GoogleHealthStatus(
-            connected=False, scopes=[], sandbox=config.google_health.sandbox
-        )
+        return GoogleHealthStatus(connected=False, scopes=[])
     return GoogleHealthStatus(
         connected=True,
         lastSyncAt=conn.lastSyncAt,
         scopes=conn.scopes,
-        sandbox=conn.sandbox,
     )
 
 
@@ -61,6 +68,10 @@ def start_authorize(
     ``return_uri`` (app deep link or Expo web origin).
     """
     ghc = config.google_health
+    if not ghc.configured:
+        raise GoogleHealthNotConfiguredError(
+            "Google Health OAuth is not configured (set GOOGLE_OAUTH_CLIENT_ID and SECRET)"
+        )
     app_return = return_uri or ghc.app_return_uri
     state = gh.make_state()
     repo.db.put_oauth_pending(
@@ -68,7 +79,7 @@ def start_authorize(
         OAuthPending(userId=user_id, returnUri=app_return, createdAt=datetime.now(timezone.utc)),
     )
     url = gh.authorize_url(ghc, state=state, redirect_uri=ghc.redirect_uri)
-    return GoogleHealthAuthorizeResponse(authorizeUrl=url, state=state, sandbox=ghc.sandbox)
+    return GoogleHealthAuthorizeResponse(authorizeUrl=url, state=state)
 
 
 def _store_connection_from_code(
@@ -84,7 +95,6 @@ def _store_connection_from_code(
         scopes=bundle.scopes,
         expiresAt=bundle.expires_at,
         connectedAt=datetime.now(timezone.utc),
-        sandbox=ghc.sandbox,
     )
     repo.db.put_connection(conn)
     return get_status(repo, config, user_id)
@@ -156,6 +166,7 @@ def sync(
     cipher = get_token_cipher(ghc.token_encryption_key)
     access_token = _fresh_access_token(repo, ghc, cipher, conn)
 
+    data_now = req.dataNow or req.referenceNow or datetime.now(timezone.utc)
     payload = gh.fetch_window_features(
         ghc,
         access_token=access_token,
@@ -163,15 +174,20 @@ def sync(
         bedtime_minutes=req.bedtimeMinutes,
         wake_minutes=req.wakeMinutes,
         timezone_name=req.timezone,
-        reference_now=req.referenceNow,
+        reference_now=data_now,
     )
+
+    if not assess_sufficient(payload.intervals):
+        raise InsufficientSleepDataError(
+            "not enough staged sleep in the Google Health window"
+        )
 
     feature_set_id = f"fs-gh-{uuid.uuid4()}"
     repo.db.put_feature_set(feature_set_id, payload)
     repo.db.touch_connection_sync(user_id)
     return FeaturesResponse(
         featureSetId=feature_set_id,
-        nightsAvailable=repo.db.feature_count_for_user(user_id),
+        nightsAvailable=repo.db.google_feature_count_for_user(user_id),
     )
 
 

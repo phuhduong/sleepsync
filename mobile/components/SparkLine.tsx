@@ -7,21 +7,34 @@ type Props = {
   height?: number;
   /** Faint horizontal baseline at the bottom of the plot area. */
   showBaseline?: boolean;
+  /** Fixed Y scale (e.g. grogginess 1–5). Defaults to data min/max. */
+  valueMin?: number;
+  valueMax?: number;
 };
 
-export function SparkLine({ data, width = 320, height = 44, showBaseline = false }: Props) {
+export function SparkLine({
+  data,
+  width = 320,
+  height = 44,
+  showBaseline = false,
+  valueMin,
+  valueMax,
+}: Props) {
   const colors = useCircadianColors();
   if (!data.length) return null;
+
   const padY = 6;
   const plotH = height - padY * 2;
   const baselineY = height - padY;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const xStep = width / (data.length - 1);
-  const pts = data.map(
-    (v, i) => [i * xStep, padY + plotH - ((v - min) / range) * plotH] as [number, number],
-  );
+  const scaleMin = valueMin ?? Math.min(...data);
+  const scaleMax = valueMax ?? Math.max(...data);
+  const range = scaleMax - scaleMin || 1;
+  const yFor = (v: number) => padY + plotH - ((v - scaleMin) / range) * plotH;
+
+  // One night → flat segment across the chart (same path style as multi-night).
+  const series = data.length === 1 ? [data[0], data[0]] : data;
+  const xStep = width / (series.length - 1);
+  const pts = series.map((v, i) => [i * xStep, yFor(v)] as [number, number]);
 
   let d = `M${pts[0][0]},${pts[0][1]}`;
   for (let i = 1; i < pts.length; i++) {

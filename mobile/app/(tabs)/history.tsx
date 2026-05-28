@@ -22,7 +22,7 @@ import { PrimaryCTA } from '../../components/PrimaryCTA';
 import { BackButton } from '../../components/BackButton';
 import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
 
-const EYEBROW = 'Past nights';
+const EYEBROW = 'Past sessions';
 
 function wokeLabel(woke: SessionRecord['woke']): string {
   if (woke === 'no') return 'No';
@@ -167,9 +167,11 @@ export default function HistoryScreen() {
 
   const oldestLabel = sessions.length ? sessions[sessions.length - 1].date : '';
   const newestLabel = sessions.length ? sessions[0].date : '';
-  const nightsCount = sessions.length;
+  const sessionsCount = sessions.length;
   const grogginessTitle =
-    nightsCount === 1 ? 'Grogginess — 1 night' : `Grogginess — last ${nightsCount} nights`;
+    sessionsCount === 1
+      ? 'Grogginess — 1 session'
+      : `Grogginess — last ${sessionsCount} sessions`;
 
   if (loading) {
     return (
@@ -197,7 +199,7 @@ export default function HistoryScreen() {
             <View style={{ alignItems: 'center', marginTop: 20 }}>
               <Text style={styles.emptyTitle}>No sessions yet</Text>
               <Text style={styles.emptyBody}>
-                {"Your first night's data will appear here after your morning debrief."}
+                {'Your first session will appear here after your morning debrief.'}
               </Text>
             </View>
             <View style={{ marginTop: 12, alignSelf: 'stretch' }}>
@@ -285,7 +287,13 @@ export default function HistoryScreen() {
             <SmallCapsLabel>{grogginessTitle}</SmallCapsLabel>
             <SmallCapsLabel>↓ trending better</SmallCapsLabel>
           </View>
-          <SparkLine data={[...grogginess].reverse()} width={chartW} height={44} />
+          <SparkLine
+            data={[...grogginess].reverse()}
+            width={chartW}
+            height={44}
+            valueMin={1}
+            valueMax={5}
+          />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
             <SmallCapsLabel>{oldestLabel}</SmallCapsLabel>
             <SmallCapsLabel>{newestLabel}</SmallCapsLabel>
@@ -293,7 +301,7 @@ export default function HistoryScreen() {
         </GlassPanel>
 
         <View style={{ marginTop: 24 }}>
-          <SmallCapsLabel style={{ marginBottom: 14 }}>Recent nights</SmallCapsLabel>
+          <SmallCapsLabel style={{ marginBottom: 14 }}>Recent sessions</SmallCapsLabel>
           <HistoryTimeline sessions={sessions} onSelectSession={(id) => setSelected(id)} />
         </View>
       </ScrollView>

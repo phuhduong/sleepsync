@@ -7,12 +7,22 @@ export type RiskPoint = {
   tEnd?: number;
 };
 
+export type SleepDataSource = 'google_health' | 'mock';
+
+export type SleepDataReason =
+  | 'not_connected'
+  | 'connect_failed'
+  | 'insufficient_data'
+  | 'using_google';
+
 export type PlanMetadata = {
   modelVersion: string;
   coldStart: boolean;
   constraintsHit: string[];
   generatedAt: string;
   nightId: string;
+  sleepDataSource?: SleepDataSource;
+  sleepDataReason?: SleepDataReason;
 };
 
 export type TonightPlan = {
@@ -103,27 +113,19 @@ export type GoogleHealthStatus = {
   connected: boolean;
   lastSyncAt?: string | null;
   scopes: string[];
-  /** Backend serving synthetic data (no real OAuth client configured). */
-  sandbox: boolean;
 };
 
 export type GoogleHealthAuthorizeResponse = {
   authorizeUrl: string;
   state: string;
-  sandbox: boolean;
-};
-
-export type GoogleHealthCallbackRequest = {
-  code: string;
-  state?: string;
-  redirectUri?: string;
 };
 
 export type GoogleHealthSyncRequest = {
   bedtimeMinutes: number;
   wakeMinutes: number;
   timezone: string;
-  referenceNow: string;
+  referenceNow?: string;
+  dataNow?: string;
 };
 
 export type GoogleHealthOutcomeSyncRequest = GoogleHealthSyncRequest & {

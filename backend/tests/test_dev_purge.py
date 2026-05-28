@@ -1,18 +1,13 @@
 """Dev purge clears persisted user data."""
 from __future__ import annotations
 
+from plan_test_helpers import plan_request
+
 
 def test_dev_purge_clears_nights_and_features(client):
-    client.post("/v1/dev/mock-features", json={"userId": "purge-u"})
     plan = client.post(
         "/v1/tonight/plan",
-        json={
-            "userId": "purge-u",
-            "bedtimeMinutes": 23 * 60,
-            "wakeMinutes": 7 * 60,
-            "timezone": "UTC",
-            "referenceNow": "2026-05-24T22:00:00Z",
-        },
+        json=plan_request("purge-u", reference_now="2026-05-24T22:00:00Z"),
     ).json()
 
     r = client.post("/v1/dev/purge", headers={"X-User-Id": "purge-u"})

@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from plan_test_helpers import assert_mock_plan_metadata, plan_request
+
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mock_features.json"
 
@@ -44,26 +46,29 @@ def test_cors_allows_expo_web_origin(client):
     assert r2.headers.get("access-control-allow-origin") == origin
 
 
-def test_features_then_plan_roundtrip(client):
+def test_features_upload_roundtrip(client):
+    """Legacy upload endpoint still accepts payloads (stored but not used for fusion)."""
     features = _load_features()
-
-    # POST /v1/features
     r = client.post("/v1/features", json=features)
     assert r.status_code == 200, r.text
     fr = r.json()
     assert fr["featureSetId"].startswith("fs-")
     assert fr["nightsAvailable"] >= 1
 
-    # POST /v1/tonight/plan
-    plan_req = {
-        "userId": features["userId"],
-        "featureSetId": fr["featureSetId"],
-        "bedtimeMinutes": features["bedtimeMinutes"],
-        "wakeMinutes": features["wakeMinutes"],
-        "timezone": features["timezone"],
-        "referenceNow": features["referenceNow"],
-    }
-    r = client.post("/v1/tonight/plan", json=plan_req)
+
+def test_plan_roundtrip_uses_server_fusion(client):
+    """Plan is built from mock week + debrief K, not from client featureSetId."""
+    features = _load_features()
+    r = client.post(
+        "/v1/tonight/plan",
+        json=plan_request(
+            features["userId"],
+            bedtime_minutes=features["bedtimeMinutes"],
+            wake_minutes=features["wakeMinutes"],
+            timezone=features["timezone"],
+            reference_now=features["referenceNow"],
+        ),
+    )
     assert r.status_code == 200, r.text
     plan = r.json()
 
@@ -100,12 +105,20 @@ def test_features_then_plan_roundtrip(client):
         assert 0.0 <= pt["t"] <= 1.0
         assert 0.0 <= pt["p"] <= 1.0
 
-    # Metadata
+    # Metadata (including sleep provenance)
     md = plan["metadata"]
     assert md["modelVersion"]
     assert "coldStart" in md
     assert isinstance(md["constraintsHit"], list)
     assert md["nightId"] == plan["nightId"]
+    assert md["sleepDataSource"] in ("mock", "google_health")
+    assert md["sleepDataReason"] in (
+        "not_connected",
+        "connect_failed",
+        "insufficient_data",
+        "using_google",
+    )
+    assert_mock_plan_metadata(md)
 
 
 def test_plan_validates_short_window(client):
@@ -131,42 +144,22 @@ def test_mock_features_endpoint(client):
 
     r2 = client.post(
         "/v1/tonight/plan",
-        json={
-            "userId": "demo-user",
-            "bedtimeMinutes": 23 * 60,
-            "wakeMinutes": 7 * 60,
-            "timezone": "America/New_York",
-            "referenceNow": "2026-05-24T22:00:00-04:00",
-        },
+        json=plan_request("demo-user", timezone="America/New_York", reference_now="2026-05-24T22:00:00-04:00"),
     )
     assert r2.status_code == 200, r2.text
+    assert_mock_plan_metadata(r2.json()["metadata"])
 
 
 def test_get_latest_plan(client):
-    client.post("/v1/dev/mock-features", json={"userId": "u1"})
-    plan_req = {
-        "userId": "u1",
-        "bedtimeMinutes": 23 * 60,
-        "wakeMinutes": 7 * 60,
-        "timezone": "UTC",
-        "referenceNow": "2026-05-24T22:00:00Z",
-    }
-    p = client.post("/v1/tonight/plan", json=plan_req).json()
+    p = client.post("/v1/tonight/plan", json=plan_request("u1", reference_now="2026-05-24T22:00:00Z")).json()
     g = client.get("/v1/tonight/plan", params={"userId": "u1"}).json()
     assert g["nightId"] == p["nightId"]
 
 
 def test_night_record_and_debrief(client):
-    client.post("/v1/dev/mock-features", json={"userId": "u2"})
     plan = client.post(
         "/v1/tonight/plan",
-        json={
-            "userId": "u2",
-            "bedtimeMinutes": 23 * 60,
-            "wakeMinutes": 7 * 60,
-            "timezone": "UTC",
-            "referenceNow": "2026-05-24T22:00:00Z",
-        },
+        json=plan_request("u2", reference_now="2026-05-24T22:00:00Z"),
     ).json()
     night_id = plan["nightId"]
 

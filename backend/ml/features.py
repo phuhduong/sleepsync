@@ -30,9 +30,12 @@ class RollupVector:
     sleep_debt_minutes: float  # positive = debt
     last_woke: float  # +1 yes, 0 unsure/missing, -1 no
     last_groggy: float  # 1..5, 0 if missing
+    woke_rate_7d: float = 0.0  # fraction of recent debriefs with woke=yes
 
 
-def rollup_vector(rollups: Optional[FeatureRollups]) -> RollupVector:
+def rollup_vector(
+    rollups: Optional[FeatureRollups], *, woke_rate_7d: float = 0.0
+) -> RollupVector:
     if rollups is None:
         return RollupVector(
             sleep_efficiency=0.85,
@@ -41,6 +44,7 @@ def rollup_vector(rollups: Optional[FeatureRollups]) -> RollupVector:
             sleep_debt_minutes=0.0,
             last_woke=0.0,
             last_groggy=0.0,
+            woke_rate_7d=woke_rate_7d,
         )
     woke_map = {"yes": 1.0, "no": -1.0, "unsure": 0.0}
     return RollupVector(
@@ -50,6 +54,7 @@ def rollup_vector(rollups: Optional[FeatureRollups]) -> RollupVector:
         sleep_debt_minutes=_default(rollups.sleepDebtMinutes, 0.0),
         last_woke=woke_map.get(rollups.lastDebriefWoke or "unsure", 0.0),
         last_groggy=float(rollups.lastDebriefGroggy or 0),
+        woke_rate_7d=woke_rate_7d,
     )
 
 

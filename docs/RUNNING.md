@@ -1,6 +1,6 @@
 # Running SleepSync locally
 
-Complete one full night in the app: **Tonight → Apply → Live → Debrief → History**.
+Complete one full loop in the app: **Tonight → Apply → Live → Debrief → History** (past sessions).
 
 Estimated time: ~15 minutes (a few minutes with dev time controls).
 
@@ -52,8 +52,8 @@ Port **8000** is the API only (`/healthz`, `/docs`). Opening `http://localhost:8
 
 ## 3. Tonight tab
 
-1. Open **Tonight** — status should show personalized plan or offline fallback.
-2. Optionally **Connect Google Health** (sandbox works without Google Cloud credentials when OAuth env is unset).
+1. Open **Tonight** — hero shows **Tonight's Plan** and a provenance line (mock sleep data by default, or Google Health when synced).
+2. **Connect Google Health** is optional and needs OAuth credentials in `backend/.env` (see [`docs/GOOGLE_HEALTH.md`](GOOGLE_HEALTH.md)). Without them, skip connect; the plan uses the mock sleep week. **Disconnect Google Health** clears the cached plan and refetches.
 3. Adjust **Bedtime** / **Wake** if needed.
 
 ## 4. Fast-forward time (dev builds only)
@@ -66,9 +66,9 @@ The overnight profile is ~8 hours. In `__DEV__` builds, open the **circadian deb
 
 ## 5. Complete the loop
 
-1. **Debrief** — answer woke / grogginess, tap save.
-2. **History** — confirm the night appears with curve and summary.
-3. Return to **Tonight** — plan should refresh; a second night may reflect last debrief rollups when using mock features.
+1. **Debrief** — answer woke / grogginess, tap save (**Good Morning** screen).
+2. **History** — confirm the session appears under **Recent sessions** (grogginess chart needs two+ sessions for a trend line).
+3. Return to **Tonight** — plan refetches; debriefs on the server adjust the next curve (mock week or Google nights + debrief K).
 
 ## Dev reset
 
@@ -92,9 +92,9 @@ Restart the API after manually deleting `backend/data/sleepsync.db` if you want 
 
 ## Google Health (optional)
 
-Live OAuth needs a **Web server** client and `https://` redirect URI on your API host. See [backend/README.md](../backend/README.md).
+**No OAuth configured:** Connect returns 503; plans still work on the mock sleep week.
 
-Without Google credentials, the backend runs in **sandbox** mode (synthetic sleep data).
+**Live data:** [`docs/GOOGLE_HEALTH.md`](GOOGLE_HEALTH.md) (Cloud Console, `.env`, connect on Tonight).
 
 ## Tests
 

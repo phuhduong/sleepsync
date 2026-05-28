@@ -139,8 +139,8 @@ def _rollup_offset(rollups: RollupVector, t_centers: np.ndarray) -> np.ndarray:
     elif rollups.last_woke < 0:
         out -= 0.4 * _bump(t_centers, center=0.62, width=0.18)
 
-    if rollups.last_groggy >= 4:
-        out += 0.3 * _bump(t_centers, center=0.90, width=0.10)
+    if rollups.woke_rate_7d > 0.5:
+        out += 0.35 * _bump(t_centers, center=0.60, width=0.20)
 
     out -= 0.15 * np.clip(rollups.sleep_debt_minutes / 240.0, 0.0, 1.0)
 

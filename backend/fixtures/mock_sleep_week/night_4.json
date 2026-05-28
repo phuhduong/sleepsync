@@ -1,0 +1,492 @@
+{
+  "userId": "mock-week",
+  "timezone": "America/New_York",
+  "referenceNow": "2026-05-24T12:00:00Z",
+  "bedtimeMinutes": 1380,
+  "wakeMinutes": 420,
+  "source": "mock",
+  "intervalMinutes": 15,
+  "intervals": [
+    {
+      "index": 0,
+      "tStart": 0.0,
+      "tEnd": 0.03125,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.8262,
+        "deep": 0.1238,
+        "rem": 0.0
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 46.0,
+      "restingHr": 57.0,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 1,
+      "tStart": 0.03125,
+      "tEnd": 0.0625,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.7941,
+        "deep": 0.1559,
+        "rem": 0.0
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.999,
+      "restingHr": 57.0,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 2,
+      "tStart": 0.0625,
+      "tEnd": 0.09375,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.761,
+        "deep": 0.189,
+        "rem": 0.0
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.997,
+      "restingHr": 57.001,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 3,
+      "tStart": 0.09375,
+      "tEnd": 0.125,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.7295,
+        "deep": 0.2205,
+        "rem": 0.0
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.991,
+      "restingHr": 57.004,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 4,
+      "tStart": 0.125,
+      "tEnd": 0.15625,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.7023,
+        "deep": 0.2476,
+        "rem": 0.0001
+      },
+      "minutesAwake": 0.751,
+      "hrvMs": 45.974,
+      "restingHr": 57.01,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 5,
+      "tStart": 0.15625,
+      "tEnd": 0.1875,
+      "stageFractions": {
+        "awake": 0.0502,
+        "light": 0.682,
+        "deep": 0.2676,
+        "rem": 0.0002
+      },
+      "minutesAwake": 0.753,
+      "hrvMs": 45.933,
+      "restingHr": 57.027,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 6,
+      "tStart": 0.1875,
+      "tEnd": 0.21875,
+      "stageFractions": {
+        "awake": 0.0507,
+        "light": 0.6705,
+        "deep": 0.2784,
+        "rem": 0.0004
+      },
+      "minutesAwake": 0.761,
+      "hrvMs": 45.842,
+      "restingHr": 57.063,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 7,
+      "tStart": 0.21875,
+      "tEnd": 0.25,
+      "stageFractions": {
+        "awake": 0.0523,
+        "light": 0.6681,
+        "deep": 0.2789,
+        "rem": 0.0008
+      },
+      "minutesAwake": 0.784,
+      "hrvMs": 45.656,
+      "restingHr": 57.137,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 8,
+      "tStart": 0.25,
+      "tEnd": 0.28125,
+      "stageFractions": {
+        "awake": 0.0564,
+        "light": 0.6732,
+        "deep": 0.2688,
+        "rem": 0.0015
+      },
+      "minutesAwake": 0.847,
+      "hrvMs": 45.31,
+      "restingHr": 57.276,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 9,
+      "tStart": 0.28125,
+      "tEnd": 0.3125,
+      "stageFractions": {
+        "awake": 0.0662,
+        "light": 0.6816,
+        "deep": 0.2495,
+        "rem": 0.0027
+      },
+      "minutesAwake": 0.993,
+      "hrvMs": 44.722,
+      "restingHr": 57.511,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 10,
+      "tStart": 0.3125,
+      "tEnd": 0.34375,
+      "stageFractions": {
+        "awake": 0.0861,
+        "light": 0.6863,
+        "deep": 0.2228,
+        "rem": 0.0048
+      },
+      "minutesAwake": 1.291,
+      "hrvMs": 43.816,
+      "restingHr": 57.874,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 11,
+      "tStart": 0.34375,
+      "tEnd": 0.375,
+      "stageFractions": {
+        "awake": 0.1212,
+        "light": 0.679,
+        "deep": 0.1916,
+        "rem": 0.0082
+      },
+      "minutesAwake": 1.818,
+      "hrvMs": 42.557,
+      "restingHr": 58.377,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 12,
+      "tStart": 0.375,
+      "tEnd": 0.40625,
+      "stageFractions": {
+        "awake": 0.1746,
+        "light": 0.6534,
+        "deep": 0.1586,
+        "rem": 0.0135
+      },
+      "minutesAwake": 2.618,
+      "hrvMs": 40.993,
+      "restingHr": 59.003,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 13,
+      "tStart": 0.40625,
+      "tEnd": 0.4375,
+      "stageFractions": {
+        "awake": 0.2432,
+        "light": 0.6093,
+        "deep": 0.1263,
+        "rem": 0.0212
+      },
+      "minutesAwake": 3.648,
+      "hrvMs": 39.283,
+      "restingHr": 59.687,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 14,
+      "tStart": 0.4375,
+      "tEnd": 0.46875,
+      "stageFractions": {
+        "awake": 0.3156,
+        "light": 0.5553,
+        "deep": 0.0969,
+        "rem": 0.0323
+      },
+      "minutesAwake": 4.734,
+      "hrvMs": 37.687,
+      "restingHr": 60.325,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 15,
+      "tStart": 0.46875,
+      "tEnd": 0.5,
+      "stageFractions": {
+        "awake": 0.3736,
+        "light": 0.5077,
+        "deep": 0.0715,
+        "rem": 0.0472
+      },
+      "minutesAwake": 5.604,
+      "hrvMs": 36.511,
+      "restingHr": 60.796,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 16,
+      "tStart": 0.5,
+      "tEnd": 0.53125,
+      "stageFractions": {
+        "awake": 0.3996,
+        "light": 0.4832,
+        "deep": 0.0508,
+        "rem": 0.0664
+      },
+      "minutesAwake": 5.994,
+      "hrvMs": 36.008,
+      "restingHr": 60.997,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 17,
+      "tStart": 0.53125,
+      "tEnd": 0.5625,
+      "stageFractions": {
+        "awake": 0.3847,
+        "light": 0.4906,
+        "deep": 0.0347,
+        "rem": 0.0899
+      },
+      "minutesAwake": 5.771,
+      "hrvMs": 36.294,
+      "restingHr": 60.882,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 18,
+      "tStart": 0.5625,
+      "tEnd": 0.59375,
+      "stageFractions": {
+        "awake": 0.3341,
+        "light": 0.5257,
+        "deep": 0.0229,
+        "rem": 0.1173
+      },
+      "minutesAwake": 5.012,
+      "hrvMs": 37.303,
+      "restingHr": 60.479,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 19,
+      "tStart": 0.59375,
+      "tEnd": 0.625,
+      "stageFractions": {
+        "awake": 0.2638,
+        "light": 0.5745,
+        "deep": 0.0145,
+        "rem": 0.1472
+      },
+      "minutesAwake": 3.956,
+      "hrvMs": 38.811,
+      "restingHr": 59.875,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 20,
+      "tStart": 0.625,
+      "tEnd": 0.65625,
+      "stageFractions": {
+        "awake": 0.1926,
+        "light": 0.6207,
+        "deep": 0.0088,
+        "rem": 0.1779
+      },
+      "minutesAwake": 2.888,
+      "hrvMs": 40.519,
+      "restingHr": 59.192,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 21,
+      "tStart": 0.65625,
+      "tEnd": 0.6875,
+      "stageFractions": {
+        "awake": 0.1343,
+        "light": 0.6536,
+        "deep": 0.0052,
+        "rem": 0.2069
+      },
+      "minutesAwake": 2.014,
+      "hrvMs": 42.145,
+      "restingHr": 58.542,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 22,
+      "tStart": 0.6875,
+      "tEnd": 0.71875,
+      "stageFractions": {
+        "awake": 0.0942,
+        "light": 0.6712,
+        "deep": 0.0029,
+        "rem": 0.2317
+      },
+      "minutesAwake": 1.412,
+      "hrvMs": 43.499,
+      "restingHr": 58.001,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 23,
+      "tStart": 0.71875,
+      "tEnd": 0.75,
+      "stageFractions": {
+        "awake": 0.0705,
+        "light": 0.6782,
+        "deep": 0.0016,
+        "rem": 0.2496
+      },
+      "minutesAwake": 1.058,
+      "hrvMs": 44.503,
+      "restingHr": 57.599,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 24,
+      "tStart": 0.75,
+      "tEnd": 0.78125,
+      "stageFractions": {
+        "awake": 0.0584,
+        "light": 0.6818,
+        "deep": 0.0008,
+        "rem": 0.259
+      },
+      "minutesAwake": 0.877,
+      "hrvMs": 45.173,
+      "restingHr": 57.331,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 25,
+      "tStart": 0.78125,
+      "tEnd": 0.8125,
+      "stageFractions": {
+        "awake": 0.0531,
+        "light": 0.6879,
+        "deep": 0.0004,
+        "rem": 0.2586
+      },
+      "minutesAwake": 0.796,
+      "hrvMs": 45.579,
+      "restingHr": 57.168,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 26,
+      "tStart": 0.8125,
+      "tEnd": 0.84375,
+      "stageFractions": {
+        "awake": 0.051,
+        "light": 0.7003,
+        "deep": 0.0002,
+        "rem": 0.2485
+      },
+      "minutesAwake": 0.765,
+      "hrvMs": 45.802,
+      "restingHr": 57.079,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 27,
+      "tStart": 0.84375,
+      "tEnd": 0.875,
+      "stageFractions": {
+        "awake": 0.0503,
+        "light": 0.7197,
+        "deep": 0.0001,
+        "rem": 0.2299
+      },
+      "minutesAwake": 0.754,
+      "hrvMs": 45.914,
+      "restingHr": 57.034,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 28,
+      "tStart": 0.875,
+      "tEnd": 0.90625,
+      "stageFractions": {
+        "awake": 0.0501,
+        "light": 0.7452,
+        "deep": 0.0,
+        "rem": 0.2047
+      },
+      "minutesAwake": 0.751,
+      "hrvMs": 45.966,
+      "restingHr": 57.014,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 29,
+      "tStart": 0.90625,
+      "tEnd": 0.9375,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.7745,
+        "deep": 0.0,
+        "rem": 0.1755
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.987,
+      "restingHr": 57.005,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 30,
+      "tStart": 0.9375,
+      "tEnd": 0.96875,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.8052,
+        "deep": 0.0,
+        "rem": 0.1448
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.996,
+      "restingHr": 57.002,
+      "respiratoryRate": 14.2
+    },
+    {
+      "index": 31,
+      "tStart": 0.96875,
+      "tEnd": 1.0,
+      "stageFractions": {
+        "awake": 0.05,
+        "light": 0.835,
+        "deep": 0.0,
+        "rem": 0.115
+      },
+      "minutesAwake": 0.75,
+      "hrvMs": 45.999,
+      "restingHr": 57.001,
+      "respiratoryRate": 14.2
+    }
+  ],
+  "rollups": null
+}

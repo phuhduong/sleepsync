@@ -25,6 +25,8 @@ htmlcov/
 node_modules/
 .expo/
 dist/
+mobile/dist/
+web-build/
 *.tsbuildinfo
 
 # Logs

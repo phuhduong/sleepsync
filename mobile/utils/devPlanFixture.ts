@@ -12,7 +12,7 @@ function buildPlan(now: Date, opts: { nightIdPrefix: string; constraintsHit: str
     nightId,
     profile: {
       id: `generated-offline-${now.toISOString().slice(0, 10)}`,
-      name: "Tonight's plan",
+      name: "Tonight's Plan",
       recommended: true,
       rationale:
         'Higher wake risk mid-night, with sustained release and pre-wake taper.',
@@ -39,6 +39,8 @@ function buildPlan(now: Date, opts: { nightIdPrefix: string; constraintsHit: str
       constraintsHit: opts.constraintsHit,
       generatedAt: now.toISOString(),
       nightId,
+      sleepDataSource: 'mock',
+      sleepDataReason: 'not_connected',
     },
   };
 }

@@ -1,28 +1,43 @@
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { fonts } from '../theme/tokens';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { GlassPanel } from './GlassPanel';
+import { PrimaryCTA } from './PrimaryCTA';
 import { SmallCapsLabel } from './SmallCapsLabel';
 import { googleHealthStatusLine } from '../utils/planCopy';
+import type { PlanMetadata } from '../utils/apiTypes';
+import { useAppState } from '../state/AppState';
 import { useGoogleHealth } from '../utils/useGoogleHealth';
 
 type Props = {
   /** Embedded in Tonight bottom sheet — no outer glass shell. */
   compact?: boolean;
+  /** When true, show plan-build spinner in the data-source line. */
+  planLoading?: boolean;
+  /**
+   * On Tonight, provenance lives under the profile name. The card only shows
+   * connection and sync time.
+   */
+  connectionOnly?: boolean;
 };
 
 function ConnectBody({
   compact,
   gh,
+  planMetadata,
+  planLoading,
+  connectionOnly,
   colors,
   styles,
 }: {
   compact: boolean;
   gh: ReturnType<typeof useGoogleHealth>;
+  planMetadata?: PlanMetadata;
+  planLoading: boolean;
+  connectionOnly: boolean;
   colors: ReturnType<typeof useCircadianColors>;
   styles: {
-    divider: object;
     status: object;
     statusCompact: object;
     button: object;
@@ -31,60 +46,80 @@ function ConnectBody({
   };
 }) {
   const connected = gh.connected;
-  const label = connected ? 'Disconnect' : 'Connect Google Health';
+  const label = connected ? 'Disconnect Google Health' : 'Connect Google Health';
+  const onPress = () => (connected ? gh.disconnect() : gh.connect());
+  const showSectionLabel = !connectionOnly;
 
   return (
     <>
-      {compact ? <View style={styles.divider} /> : null}
-      <SmallCapsLabel style={compact ? { marginTop: 16 } : undefined}>Data source</SmallCapsLabel>
-      <Text style={compact ? styles.statusCompact : styles.status}>
-        {googleHealthStatusLine(gh.status, gh.loading)}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={connected ? 'Disconnect Google Health' : 'Connect Google Health'}
-        disabled={gh.busy}
-        onPress={() => (connected ? gh.disconnect() : gh.connect())}
-        style={({ pressed }) => [
-          styles.button,
-          !connected && {
-            borderColor: colors.accentDim,
-            backgroundColor: colors.surface2,
-          },
-          connected && {
-            borderColor: colors.border,
-            backgroundColor: 'transparent',
-          },
-          { opacity: gh.busy || pressed ? 0.72 : 1 },
-        ]}
-      >
-        {gh.busy ? (
-          <ActivityIndicator size="small" color={colors.textSec} />
-        ) : null}
-        <Text
-          style={[
-            styles.buttonText,
-            { color: connected ? colors.textTer : colors.text },
+      {showSectionLabel ? (
+        <SmallCapsLabel style={compact ? { marginTop: 16 } : undefined}>
+          {connectionOnly ? 'Google Health' : 'Data source'}
+        </SmallCapsLabel>
+      ) : null}
+      {!connectionOnly ? (
+        <Text style={compact ? styles.statusCompact : styles.status}>
+          {googleHealthStatusLine(gh.status, gh.loading, planMetadata, planLoading, {
+            connectionOnly,
+          })}
+        </Text>
+      ) : null}
+      {compact ? (
+        <PrimaryCTA
+          label={label}
+          onPress={onPress}
+          loading={gh.busy}
+          variant="glassDark"
+        />
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={connected ? 'Disconnect Google Health' : 'Connect Google Health'}
+          disabled={gh.busy}
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.button,
+            !connected && {
+              borderColor: colors.accentDim,
+              backgroundColor: colors.surface2,
+            },
+            connected && {
+              borderColor: colors.border,
+              backgroundColor: 'transparent',
+            },
+            { opacity: gh.busy || pressed ? 0.72 : 1 },
           ]}
         >
-          {label}
-        </Text>
-      </Pressable>
+          {gh.busy ? (
+            <ActivityIndicator size="small" color={colors.textSec} />
+          ) : null}
+          <Text
+            style={[
+              styles.buttonText,
+              { color: connected ? colors.textTer : colors.text },
+            ]}
+          >
+            {label}
+          </Text>
+        </Pressable>
+      )}
       {gh.error ? <Text style={styles.error}>{gh.error}</Text> : null}
     </>
   );
 }
 
-export function GoogleHealthConnectCard({ compact = false }: Props) {
+export function GoogleHealthConnectCard({
+  compact = false,
+  planLoading = false,
+  connectionOnly = false,
+}: Props) {
   const colors = useCircadianColors();
   const gh = useGoogleHealth();
+  const { tonightPlan } = useAppState();
   const styles = useThemedStyles((c) => ({
     compactWrap: {
-      marginBottom: 16,
-    },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: c.border,
+      marginTop: 24,
+      marginBottom: 12,
     },
     status: {
       marginTop: 8,
@@ -132,14 +167,30 @@ export function GoogleHealthConnectCard({ compact = false }: Props) {
   if (compact) {
     return (
       <View style={styles.compactWrap}>
-        <ConnectBody compact gh={gh} colors={colors} styles={styles} />
+        <ConnectBody
+          compact
+          gh={gh}
+          planMetadata={tonightPlan?.metadata}
+          planLoading={planLoading}
+          connectionOnly={connectionOnly}
+          colors={colors}
+          styles={styles}
+        />
       </View>
     );
   }
 
   return (
     <GlassPanel variant="card" style={{ marginTop: 20 }}>
-      <ConnectBody compact={false} gh={gh} colors={colors} styles={styles} />
+      <ConnectBody
+        compact={false}
+        gh={gh}
+        planMetadata={tonightPlan?.metadata}
+        planLoading={planLoading}
+        connectionOnly={connectionOnly}
+        colors={colors}
+        styles={styles}
+      />
     </GlassPanel>
   );
 }

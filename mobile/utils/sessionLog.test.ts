@@ -43,7 +43,7 @@ describe('appendSession', () => {
     ];
     const record = await appendSession({
       profileId: 'generated-abc',
-      profile: "Tonight's plan",
+      profile: "Tonight's Plan",
       keyframes: kf,
       woke: 'no',
       groggy: 1,

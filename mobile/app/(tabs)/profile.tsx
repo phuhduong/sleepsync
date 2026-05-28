@@ -15,9 +15,7 @@ import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../../utils/profiles';
 import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCard';
 import { planProfileRationale, planStatusLine } from '../../utils/planCopy';
 import { useTonightPlan } from '../../utils/useTonightPlan';
-import { loadSessions, subscribeSessionLog } from '../../utils/sessionLog';
-import { rollupsFromSessions } from '../../utils/rollupsFromSessions';
-import type { FeatureRollups } from '../../utils/apiTypes';
+import { subscribeSessionLog } from '../../utils/sessionLog';
 import { useGoogleHealth } from '../../utils/useGoogleHealth';
 
 export default function ProfileScreen() {
@@ -77,38 +75,33 @@ export default function ProfileScreen() {
   const { tonightPlan } = useAppState();
   const gh = useGoogleHealth();
   const [focusKey, setFocusKey] = useState(0);
-  const [sessionRollups, setSessionRollups] = useState<FeatureRollups | undefined>();
-
-  const reloadRollups = useCallback(() => {
-    loadSessions().then((sessions) => setSessionRollups(rollupsFromSessions(sessions)));
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       setFocusKey((k) => k + 1);
-      reloadRollups();
-    }, [reloadRollups]),
+    }, []),
   );
 
   useEffect(() => subscribeSessionLog(() => {
-    reloadRollups();
     setFocusKey((k) => k + 1);
-  }), [reloadRollups]);
+  }), []);
 
   const { status, source } = useTonightPlan({
     appNow,
     focusKey,
     googleHealthConnected: gh.connected,
-    rollups: sessionRollups,
   });
 
   const contentW = Math.min(windowWidth, MOBILE_COLUMN_MAX);
   const chartFallbackW = Math.max(220, contentW - 48 - 32);
   const [chartW, setChartW] = useState(chartFallbackW);
-  const coldStart = tonightPlan?.metadata.coldStart ?? false;
   const profile = tonightPlan?.profile ?? findProfile(OFFLINE_FALLBACK_PROFILE_ID);
   const riskCurve = tonightPlan?.riskCurve ?? [];
-  const statusLine = planStatusLine({ tonightPlan, status, source, coldStart });
+  const statusLine = planStatusLine({
+    tonightPlan,
+    status,
+    source,
+    ghStatus: gh.status,
+  });
   return (
     <MobileTabScreen aurora={false}>
       <View style={styles.column}>
@@ -155,7 +148,10 @@ export default function ProfileScreen() {
             ) : null}
           </GlassPanel>
 
-          <GoogleHealthConnectCard />
+          <GoogleHealthConnectCard
+            connectionOnly
+            planLoading={status === 'loading' && !tonightPlan}
+          />
         </ScrollView>
       </View>
     </MobileTabScreen>

@@ -5,7 +5,6 @@ import type {
   FeaturesPayload,
   FeaturesResponse,
   GoogleHealthAuthorizeResponse,
-  GoogleHealthCallbackRequest,
   GoogleHealthOutcomeSyncRequest,
   GoogleHealthStatus,
   GoogleHealthSyncRequest,
@@ -82,7 +81,7 @@ export function getGoogleHealthStatus(): Promise<GoogleHealthStatus> {
   return fetchJson<GoogleHealthStatus>('/v1/google-health/status', { method: 'GET' });
 }
 
-/** Start Google OAuth — returns the consent URL + CSRF state (or sandbox flag). */
+/** Start Google OAuth — returns the consent URL + CSRF state. */
 /** @param returnUri App deep link or web URL opened after backend OAuth (not the Google redirect). */
 export function getGoogleHealthAuthorizeUrl(
   returnUri?: string,
@@ -90,16 +89,6 @@ export function getGoogleHealthAuthorizeUrl(
   const qs = returnUri ? `?returnUri=${encodeURIComponent(returnUri)}` : '';
   return fetchJson<GoogleHealthAuthorizeResponse>(`/v1/google-health/oauth/authorize${qs}`, {
     method: 'GET',
-  });
-}
-
-/** Exchange the OAuth code for tokens stored against X-User-Id. Returns new status. */
-export function postGoogleHealthCallback(
-  req: GoogleHealthCallbackRequest,
-): Promise<GoogleHealthStatus> {
-  return fetchJson<GoogleHealthStatus>('/v1/google-health/oauth/callback', {
-    method: 'POST',
-    body: JSON.stringify(req),
   });
 }
 

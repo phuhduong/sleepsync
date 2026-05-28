@@ -5,7 +5,7 @@ const base: SessionRecord = {
   id: 1,
   date: 'May 24',
   profileId: 'generated-x',
-  profile: "Tonight's plan",
+  profile: "Tonight's Plan",
   outcome: 'ok',
   summary: 'Slept through with mild morning grogginess.',
   woke: 'no',

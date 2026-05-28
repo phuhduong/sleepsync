@@ -57,6 +57,13 @@ class PlanMetadata(BaseModel):
     constraintsHit: list[str] = Field(default_factory=list)
     generatedAt: datetime
     nightId: str
+    sleepDataSource: Literal["google_health", "mock"] = "mock"
+    sleepDataReason: Literal[
+        "not_connected",
+        "connect_failed",
+        "insufficient_data",
+        "using_google",
+    ] = "not_connected"
 
 
 # ---------- Feature ingest ----------
@@ -219,15 +226,11 @@ class GoogleHealthStatus(BaseModel):
     connected: bool
     lastSyncAt: Optional[datetime] = None
     scopes: list[str] = Field(default_factory=list)
-    # True when the backend is serving synthetic data (no real OAuth client).
-    sandbox: bool = False
 
 
 class GoogleHealthAuthorizeResponse(BaseModel):
     authorizeUrl: str
     state: str
-    # When true, mobile may skip the browser and POST the callback directly.
-    sandbox: bool = False
 
 
 class GoogleHealthCallbackRequest(BaseModel):
@@ -245,7 +248,9 @@ class GoogleHealthSyncRequest(BaseModel):
     bedtimeMinutes: int = Field(..., ge=0, lt=1440)
     wakeMinutes: int = Field(..., ge=0, lt=1440)
     timezone: str
-    referenceNow: datetime
+    referenceNow: datetime | None = None
+    """Deprecated — use server wall clock via ``dataNow``."""
+    dataNow: datetime | None = None
 
 
 class GoogleHealthOutcomeSyncRequest(GoogleHealthSyncRequest):
@@ -263,7 +268,6 @@ class GoogleHealthConnection(BaseModel):
     expiresAt: datetime
     connectedAt: datetime
     lastSyncAt: Optional[datetime] = None
-    sandbox: bool = False
 
 
 # ---------- Dev / health ----------
