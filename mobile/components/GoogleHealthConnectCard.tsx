@@ -8,7 +8,7 @@ import { SmallCapsLabel } from './SmallCapsLabel';
 import { googleHealthStatusLine } from '../utils/planCopy';
 import type { PlanMetadata } from '../utils/apiTypes';
 import { useAppState } from '../state/AppState';
-import { useGoogleHealth } from '../utils/useGoogleHealth';
+import { useGoogleHealth } from '../state/GoogleHealthContext';
 
 type Props = {
   /** Embedded in Tonight bottom sheet — no outer glass shell. */

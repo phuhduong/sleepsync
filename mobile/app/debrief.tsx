@@ -18,7 +18,7 @@ import { syncGoogleHealthOutcomeAfterDebrief } from '../utils/googleHealthOutcom
 import { flushDeliveryLog } from '../utils/flushDeliveryLog';
 import { getPatchTransport } from '../utils/patchTransportInstance';
 import { getUserId } from '../utils/identity';
-import { useGoogleHealth } from '../utils/useGoogleHealth';
+import { useGoogleHealth } from '../state/GoogleHealthContext';
 import type { SessionWoke } from '../utils/profiles';
 
 type Woke = SessionWoke;

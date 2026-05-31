@@ -35,7 +35,6 @@ def aggregate_interval_matrices(
         raise ValueError("aggregate_interval_matrices requires at least one payload")
     matrices = [interval_feature_matrix(p, grid_size)[0] for p in payloads]
     mean_x = np.mean(matrices, axis=0)
-    t_centers = (np.arange(grid_size) + 0.5) / grid_size
     intervals: list[IntervalFeature] = []
     for i in range(grid_size):
         t_start = i / grid_size

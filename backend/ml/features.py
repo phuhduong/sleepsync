@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-from models.schemas import FeaturesPayload, FeatureRollups, IntervalFeature
+from models.schemas import FeaturesPayload, FeatureRollups
 
 
 # Reasonable physiological centers used to z-ish-normalize vitals when present.

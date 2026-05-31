@@ -16,7 +16,7 @@ import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCar
 import { planProfileRationale, planStatusLine } from '../../utils/planCopy';
 import { useTonightPlan } from '../../utils/useTonightPlan';
 import { subscribeSessionLog } from '../../utils/sessionLog';
-import { useGoogleHealth } from '../../utils/useGoogleHealth';
+import { useGoogleHealth } from '../../state/GoogleHealthContext';
 
 export default function ProfileScreen() {
   const colors = useCircadianColors();

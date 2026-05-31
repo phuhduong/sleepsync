@@ -214,5 +214,3 @@ export async function purgeDevBackend(): Promise<void> {
     if (__DEV__) console.warn('[apiClient] dev purge failed', err);
   }
 }
-
-export const _internal = { baseUrl, PLAN_CACHE_KEY };

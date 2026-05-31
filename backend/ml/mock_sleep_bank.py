@@ -11,8 +11,6 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-import math
-
 from models.schemas import FeaturesPayload, IntervalFeature, StageFractions
 
 _FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "mock_sleep_week"

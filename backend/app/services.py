@@ -18,12 +18,10 @@ from ml.plan_inputs import (
 )
 from ml.risk_model import RiskCurve, RiskModel
 from models.schemas import (
-    FeaturesPayload,
     NightRecord,
     PlanMetadata,
     PlanRequest,
     PlanResponse,
-    Profile,
     RiskPoint,
 )
 from storage.repositories import Repository

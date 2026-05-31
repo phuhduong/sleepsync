@@ -104,11 +104,6 @@ export function planStatusLine(opts: {
   return 'Personalized delivery curve for your schedule.';
 }
 
-/** @deprecated Use planSleepProvenanceLine */
-export function sleepDataReasonLine(reason: SleepDataReason): string {
-  return planSleepProvenanceLine(reason);
-}
-
 /** Connect card data line: plan provenance when known, else connection state. */
 export function googleHealthStatusLine(
   status: GoogleHealthStatus | null,

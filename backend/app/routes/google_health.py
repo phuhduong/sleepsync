@@ -83,7 +83,7 @@ def oauth_callback_browser(
         )
     except OAuthStateError as exc:
         location = oauth_return_url(fallback, connected=False, error=str(exc))
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         location = oauth_return_url(fallback, connected=False, error="exchange_failed")
     return RedirectResponse(url=location, status_code=302)
 

@@ -410,7 +410,6 @@ def build_intervals_from_samples(
         t_end = (i + 1) / grid_size
         bin_start = window_start + timedelta(seconds=total * t_start)
         bin_end = window_start + timedelta(seconds=total * t_end)
-        bin_secs = (bin_end - bin_start).total_seconds()
 
         stage_secs = {s: 0.0 for s in _STAGES}
         for seg in segments:

@@ -12,7 +12,7 @@ import numpy as np
 
 from models.schemas import FeaturesPayload, RiskPoint
 
-from .features import RollupVector, feature_names, interval_feature_matrix, rollup_vector
+from .features import RollupVector, feature_names, interval_feature_matrix
 
 
 # Hand-tuned weights producing a calibrated cold-start logistic curve. Order

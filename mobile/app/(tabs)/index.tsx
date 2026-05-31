@@ -13,7 +13,7 @@ import { PrimaryCTA } from '../../components/PrimaryCTA';
 import { StatNumber } from '../../components/StatNumber';
 import { ScheduleTimePickerModal } from '../../components/ScheduleTimePickerModal';
 import { useTonightPlan } from '../../utils/useTonightPlan';
-import { useGoogleHealth } from '../../utils/useGoogleHealth';
+import { useGoogleHealth } from '../../state/GoogleHealthContext';
 import { GlassPanel } from '../../components/GlassPanel';
 import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCard';
 import { planStatusLine } from '../../utils/planCopy';
