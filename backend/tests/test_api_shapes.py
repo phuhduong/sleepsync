@@ -215,6 +215,31 @@ def test_night_record_and_debrief(client):
     assert len(rec["deliverySamples"]) == 2
 
 
+def test_list_recent_nights(client):
+    plan = client.post(
+        "/v1/tonight/plan",
+        json=plan_request("u-list", reference_now="2026-05-24T22:00:00Z"),
+    ).json()
+    night_id = plan["nightId"]
+    client.post(
+        f"/v1/nights/{night_id}/debrief",
+        json={
+            "userId": "u-list",
+            "woke": "no",
+            "groggy": 1,
+            "completedAt": "2026-05-25T07:00:00Z",
+            "profileId": plan["profile"]["id"],
+            "startedAt": "2026-05-24T22:05:00Z",
+        },
+    )
+    r = client.get("/v1/nights/recent", headers={"X-User-Id": "u-list"})
+    assert r.status_code == 200
+    nights = r.json()
+    assert len(nights) >= 1
+    assert nights[0]["nightId"] == night_id
+    assert nights[0]["debrief"]["groggy"] == 1
+
+
 def test_unknown_night_404(client):
     r = client.get("/v1/nights/does-not-exist")
     assert r.status_code == 404

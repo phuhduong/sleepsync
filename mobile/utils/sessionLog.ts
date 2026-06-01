@@ -1,17 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Keyframe, SessionRecord, SessionWoke } from './profiles';
+import type { NightRecord } from './apiTypes';
+import { listRecentNights } from './apiClient';
+import type { SessionRecord, SessionWoke } from './profiles';
 
 const STORAGE_KEY = '@sleepsync/sessions';
 
 const listeners = new Set<() => void>();
 
-/** Subscribe to append/clear so screens can refresh without refocusing a tab. */
+/** Subscribe to server sync / cache clear so screens refresh without refocusing a tab. */
 export function subscribeSessionLog(onChange: () => void): () => void {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
 }
 
-function notifySessionLogChanged(): void {
+export function invalidateSessionLog(): void {
   listeners.forEach((fn) => {
     try {
       fn();
@@ -22,18 +24,6 @@ function notifySessionLogChanged(): void {
     }
   });
 }
-
-export type NewSessionInput = {
-  profileId: string;
-  profile: string;
-  keyframes: Keyframe[];
-  rationale?: string;
-  bedtimeMinutes?: number;
-  wakeMinutes?: number;
-  woke: SessionWoke;
-  groggy: number;
-  note?: string;
-};
 
 export function deriveOutcome(woke: SessionWoke, groggy: number): SessionRecord['outcome'] {
   if (woke === 'no' && groggy <= 2) return 'good';
@@ -55,13 +45,39 @@ export function formatSessionDate(completedAt: Date): string {
   return completedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** Map a server night (with debrief) to the History list/detail shape. */
+export function nightRecordToSession(night: NightRecord): SessionRecord {
+  const debrief = night.debrief!;
+  const profile = night.generatedProfile;
+  const completedAt =
+    typeof debrief.completedAt === 'string'
+      ? debrief.completedAt
+      : new Date(debrief.completedAt).toISOString();
+  return {
+    id: night.nightId,
+    date: formatSessionDate(new Date(completedAt)),
+    profileId: debrief.profileId,
+    profile: profile.name,
+    keyframes: profile.keyframes,
+    rationale: profile.rationale,
+    bedtimeMinutes: night.bedtimeMinutes,
+    wakeMinutes: night.wakeMinutes,
+    woke: debrief.woke,
+    groggy: debrief.groggy,
+    note: debrief.note?.trim() || undefined,
+    outcome: deriveOutcome(debrief.woke, debrief.groggy),
+    summary: buildSessionSummary({ woke: debrief.woke, groggy: debrief.groggy }),
+    completedAt,
+  };
+}
+
 function sortNewestFirst(sessions: SessionRecord[]): SessionRecord[] {
   return [...sessions].sort(
     (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
   );
 }
 
-export async function loadSessions(): Promise<SessionRecord[]> {
+async function loadCachedSessions(): Promise<SessionRecord[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -70,38 +86,38 @@ export async function loadSessions(): Promise<SessionRecord[]> {
     return sortNewestFirst(parsed);
   } catch (e) {
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      console.warn('[sessionLog] load failed', e);
+      console.warn('[sessionLog] cache load failed', e);
     }
     return [];
   }
 }
 
-export async function clearSessions(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY);
-  notifySessionLogChanged();
+async function cacheSessions(sessions: SessionRecord[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  } catch (e) {
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.warn('[sessionLog] cache write failed', e);
+    }
+  }
 }
 
-export async function appendSession(input: NewSessionInput): Promise<SessionRecord> {
-  const existing = await loadSessions();
-  const completedAt = new Date();
-  const record: SessionRecord = {
-    id: completedAt.getTime(),
-    date: formatSessionDate(completedAt),
-    profileId: input.profileId,
-    profile: input.profile,
-    keyframes: input.keyframes,
-    rationale: input.rationale,
-    bedtimeMinutes: input.bedtimeMinutes,
-    wakeMinutes: input.wakeMinutes,
-    woke: input.woke,
-    groggy: input.groggy,
-    note: input.note?.trim() || undefined,
-    outcome: deriveOutcome(input.woke, input.groggy),
-    summary: buildSessionSummary(input),
-    completedAt: completedAt.toISOString(),
-  };
-  const next = sortNewestFirst([record, ...existing]);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  notifySessionLogChanged();
-  return record;
+/** Load debrief-complete nights from the API; fall back to last cached list offline. */
+export async function loadSessions(): Promise<SessionRecord[]> {
+  try {
+    const nights = await listRecentNights();
+    const sessions = sortNewestFirst(nights.map(nightRecordToSession));
+    await cacheSessions(sessions);
+    return sessions;
+  } catch (e) {
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.warn('[sessionLog] API load failed, using cache', e);
+    }
+    return loadCachedSessions();
+  }
+}
+
+export async function clearSessions(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  invalidateSessionLog();
 }

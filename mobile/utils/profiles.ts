@@ -19,7 +19,8 @@ export type Profile = {
 export type SessionWoke = 'yes' | 'no' | 'unsure';
 
 export type SessionRecord = {
-  id: number;
+  /** Server night id — same key as plan debrief and History detail. */
+  id: string;
   date: string;
   profileId: string;
   profile: string;

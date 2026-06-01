@@ -16,7 +16,7 @@ const SPINE_LEFT = (RAIL_W - SPINE_W) / 2;
 
 type Props = {
   sessions: SessionRecord[];
-  onSelectSession: (id: number) => void;
+  onSelectSession: (id: string) => void;
 };
 
 function TimelineRow({

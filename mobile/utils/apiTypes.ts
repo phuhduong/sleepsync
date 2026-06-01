@@ -99,6 +99,22 @@ export type DebriefPayload = {
   startedAt: string;
 };
 
+export type DebriefResponse = {
+  sessionId: string;
+  outcome: 'good' | 'ok';
+  summary: string;
+};
+
+export type NightRecord = {
+  nightId: string;
+  userId: string;
+  bedtimeMinutes: number;
+  wakeMinutes: number;
+  generatedProfile: Profile;
+  debrief?: DebriefPayload | null;
+  createdAt: string;
+};
+
 export type DeliverySample = {
   at: string;
   t: number;

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   DebriefPayload,
+  DebriefResponse,
   DeliverySample,
   FeaturesPayload,
   FeaturesResponse,
@@ -8,6 +9,7 @@ import type {
   GoogleHealthOutcomeSyncRequest,
   GoogleHealthStatus,
   GoogleHealthSyncRequest,
+  NightRecord,
   PlanRequest,
   TonightPlan,
 } from './apiTypes';
@@ -152,8 +154,12 @@ export async function fetchTonightPlan(req: PlanRequest, now: Date): Promise<Fet
 
 // ---- night feedback ----------------------------------------------------
 
-export function syncDebrief(nightId: string, debrief: DebriefPayload): Promise<unknown> {
-  return fetchJson<unknown>(`/v1/nights/${encodeURIComponent(nightId)}/debrief`, {
+export function listRecentNights(limit = 50): Promise<NightRecord[]> {
+  return fetchJson<NightRecord[]>(`/v1/nights/recent?limit=${limit}`, { method: 'GET' });
+}
+
+export function syncDebrief(nightId: string, debrief: DebriefPayload): Promise<DebriefResponse> {
+  return fetchJson<DebriefResponse>(`/v1/nights/${encodeURIComponent(nightId)}/debrief`, {
     method: 'POST',
     body: JSON.stringify(debrief),
   });

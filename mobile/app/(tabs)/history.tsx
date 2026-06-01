@@ -137,7 +137,7 @@ export default function HistoryScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const reloadSessions = useCallback(() => {
     setLoading(true);

@@ -2,7 +2,7 @@ import { sessionDetailHeading, sessionListTitle } from './sessionDisplay';
 import type { SessionRecord } from './profiles';
 
 const base: SessionRecord = {
-  id: 1,
+  id: 'night-1',
   date: 'May 24',
   profileId: 'generated-x',
   profile: "Tonight's Plan",

@@ -72,6 +72,7 @@ Without OAuth env vars, **Connect Google Health** returns 503; tonight's plan st
 
 ## Night record fields
 
+- `GET /v1/nights/recent` — debrief-complete nights for History (`X-User-Id`)
 - `POST /v1/nights/{id}/debrief` — morning questionnaire
 - `POST /v1/nights/{id}/wearable-outcome` — post-wake wearable sleep summary
 - `POST /v1/nights/{id}/delivery` — dose log from Live

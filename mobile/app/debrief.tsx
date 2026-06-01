@@ -11,9 +11,8 @@ import { DotScale } from '../components/DotScale';
 import { PrimaryCTA } from '../components/PrimaryCTA';
 import { useAppState } from '../state/AppState';
 import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../utils/profiles';
-import { appendSession } from '../utils/sessionLog';
-import { planRationaleLine } from '../utils/planCopy';
-import { syncDebrief } from '../utils/apiClient';
+import { invalidateSessionLog } from '../utils/sessionLog';
+import { ApiError, syncDebrief } from '../utils/apiClient';
 import { syncGoogleHealthOutcomeAfterDebrief } from '../utils/googleHealthOutcomeSync';
 import { flushDeliveryLog } from '../utils/flushDeliveryLog';
 import { getPatchTransport } from '../utils/patchTransportInstance';
@@ -108,53 +107,44 @@ export default function DebriefScreen() {
       findProfile(pendingSession?.profileId ?? OFFLINE_FALLBACK_PROFILE_ID);
     const trimmedNote = note.trim() || undefined;
     const startedAt = pendingSession?.startedAt ?? new Date().toISOString();
+    if (!nightId) {
+      setSaveError('Complete a live session tonight before saving your debrief.');
+      setSaving(false);
+      return;
+    }
+    if (nightId.startsWith('night-offline-')) {
+      setSaveError('Plan is offline-only. Start the SleepSync API and refresh Tonight before saving.');
+      setSaving(false);
+      return;
+    }
     try {
-      const record = await appendSession({
-        profileId: prof.id,
-        profile: prof.name,
-        keyframes: prof.keyframes,
-        rationale: planRationaleLine(prof.rationale),
-        bedtimeMinutes,
-        wakeMinutes,
+      await flushDeliveryLog(getPatchTransport(), nightId);
+      const userId = await getUserId();
+      const completedAt = new Date().toISOString();
+      await syncDebrief(nightId, {
+        userId,
         woke: woke!,
         groggy: groggy!,
         note: trimmedNote,
+        completedAt,
+        profileId: prof.id,
+        startedAt,
       });
-      // Sync to backend if a night was generated. Local save is the source of
-      // truth; we don't block the user on backend success.
-      if (nightId) {
-        await flushDeliveryLog(getPatchTransport(), nightId);
+      if (googleHealthConnected) {
         try {
-          const userId = await getUserId();
-          await syncDebrief(nightId, {
-            userId,
-            woke: woke!,
-            groggy: groggy!,
-            note: trimmedNote,
-            completedAt: record.completedAt,
-            profileId: prof.id,
-            startedAt,
+          await syncGoogleHealthOutcomeAfterDebrief({
+            nightId,
+            bedtimeMinutes,
+            wakeMinutes,
+            now: new Date(completedAt),
           });
-          if (googleHealthConnected) {
-            try {
-              await syncGoogleHealthOutcomeAfterDebrief({
-                nightId,
-                bedtimeMinutes,
-                wakeMinutes,
-                now: new Date(record.completedAt),
-              });
-            } catch (outcomeErr) {
-              if (typeof __DEV__ !== 'undefined' && __DEV__) {
-                console.warn('[debrief] google health outcome sync failed', outcomeErr);
-              }
-            }
-          }
-        } catch (syncErr) {
+        } catch (outcomeErr) {
           if (typeof __DEV__ !== 'undefined' && __DEV__) {
-            console.warn('[debrief] backend sync failed', syncErr);
+            console.warn('[debrief] google health outcome sync failed', outcomeErr);
           }
         }
       }
+      invalidateSessionLog();
       clearPendingSession();
       setSaved(true);
       setTimeout(() => router.replace('/' as never), 1200);
@@ -162,7 +152,11 @@ export default function DebriefScreen() {
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[debrief] save failed', e);
       }
-      setSaveError('Could not save. Try again.');
+      if (e instanceof ApiError && e.status === 404) {
+        setSaveError('Tonight\'s night was not found on the server. Refresh your plan and try again.');
+      } else {
+        setSaveError('Could not save. Check the API connection and try again.');
+      }
       setSaving(false);
     }
   };

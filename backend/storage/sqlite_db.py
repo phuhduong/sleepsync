@@ -150,24 +150,29 @@ class SqliteDB:
             return out
 
     def list_recent_debriefs(self, user_id: str, k: int = 7) -> list[DebriefRequest]:
+        nights = self.list_debrief_nights(user_id, k=k)
+        return [n.debrief for n in nights if n.debrief is not None]
+
+    def list_debrief_nights(self, user_id: str, k: int = 50) -> list[NightRecord]:
+        """Nights with a completed debrief, newest debrief first (History + plan inputs)."""
         with self._lock:
             rows = self._conn.execute(
                 """
                 SELECT payload_json FROM nights
                 WHERE user_id = ?
                 ORDER BY created_at DESC
-                LIMIT 80
+                LIMIT 200
                 """,
                 (user_id,),
             ).fetchall()
-            debriefs: list[tuple[datetime, DebriefRequest]] = []
+            nights: list[tuple[datetime, NightRecord]] = []
             for row in rows:
                 night = self._load(NightRecord, row["payload_json"])
                 if night.debrief is None:
                     continue
-                debriefs.append((night.debrief.completedAt, night.debrief))
-            debriefs.sort(key=lambda x: x[0], reverse=True)
-            return [d for _, d in debriefs[:k]]
+                nights.append((night.debrief.completedAt, night))
+            nights.sort(key=lambda x: x[0], reverse=True)
+            return [n for _, n in nights[:k]]
 
     def purge_user_data(self, user_id: str) -> None:
         """Dev reset — remove all persisted rows for one user."""

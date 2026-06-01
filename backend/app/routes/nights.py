@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 
 from models.schemas import (
     DebriefRequest,
@@ -15,6 +15,23 @@ from models.schemas import (
 from storage.repositories import Repository, get_repository
 
 router = APIRouter(prefix="/v1/nights", tags=["nights"])
+
+
+def _require_user_id(x_user_id: str | None) -> str:
+    if not x_user_id or not x_user_id.strip():
+        raise HTTPException(status_code=400, detail="X-User-Id header required")
+    return x_user_id.strip()
+
+
+@router.get("/recent", response_model=list[NightRecord], status_code=200)
+def list_recent_nights(
+    limit: int = Query(50, ge=1, le=100),
+    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    repo: Repository = Depends(get_repository),
+) -> list[NightRecord]:
+    """Debrief-complete nights for History (same store as plan personalization)."""
+    user_id = _require_user_id(x_user_id)
+    return repo.db.list_debrief_nights(user_id, k=limit)
 
 
 @router.post("/{night_id}/debrief", response_model=DebriefResponse, status_code=200)
