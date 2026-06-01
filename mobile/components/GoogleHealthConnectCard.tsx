@@ -1,6 +1,5 @@
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { fonts } from '../theme/tokens';
-import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { GlassPanel } from './GlassPanel';
 import { PrimaryCTA } from './PrimaryCTA';
@@ -28,7 +27,6 @@ function ConnectBody({
   planMetadata,
   planLoading,
   connectionOnly,
-  colors,
   styles,
 }: {
   compact: boolean;
@@ -36,12 +34,9 @@ function ConnectBody({
   planMetadata?: PlanMetadata;
   planLoading: boolean;
   connectionOnly: boolean;
-  colors: ReturnType<typeof useCircadianColors>;
   styles: {
     status: object;
     statusCompact: object;
-    button: object;
-    buttonText: object;
     error: object;
   };
 }) {
@@ -64,45 +59,7 @@ function ConnectBody({
           })}
         </Text>
       ) : null}
-      {compact ? (
-        <PrimaryCTA
-          label={label}
-          onPress={onPress}
-          loading={gh.busy}
-          variant="glassDark"
-        />
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={connected ? 'Disconnect Google Health' : 'Connect Google Health'}
-          disabled={gh.busy}
-          onPress={onPress}
-          style={({ pressed }) => [
-            styles.button,
-            !connected && {
-              borderColor: colors.accentDim,
-              backgroundColor: colors.surface2,
-            },
-            connected && {
-              borderColor: colors.border,
-              backgroundColor: 'transparent',
-            },
-            { opacity: gh.busy || pressed ? 0.72 : 1 },
-          ]}
-        >
-          {gh.busy ? (
-            <ActivityIndicator size="small" color={colors.textSec} />
-          ) : null}
-          <Text
-            style={[
-              styles.buttonText,
-              { color: connected ? colors.textTer : colors.text },
-            ]}
-          >
-            {label}
-          </Text>
-        </Pressable>
-      )}
+      <PrimaryCTA label={label} onPress={onPress} loading={gh.busy} />
       {gh.error ? <Text style={styles.error}>{gh.error}</Text> : null}
     </>
   );
@@ -113,7 +70,6 @@ export function GoogleHealthConnectCard({
   planLoading = false,
   connectionOnly = false,
 }: Props) {
-  const colors = useCircadianColors();
   const gh = useGoogleHealth();
   const { tonightPlan } = useAppState();
   const styles = useThemedStyles((c) => ({
@@ -137,22 +93,6 @@ export function GoogleHealthConnectCard({
       lineHeight: 19,
       color: c.textSec,
     },
-    button: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      borderRadius: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: c.borderMid,
-    },
-    buttonText: {
-      fontFamily: fonts.bodyS,
-      fontSize: 15,
-      letterSpacing: 0.2,
-    },
     error: {
       marginTop: 10,
       fontFamily: fonts.body,
@@ -173,7 +113,6 @@ export function GoogleHealthConnectCard({
           planMetadata={tonightPlan?.metadata}
           planLoading={planLoading}
           connectionOnly={connectionOnly}
-          colors={colors}
           styles={styles}
         />
       </View>
@@ -188,7 +127,6 @@ export function GoogleHealthConnectCard({
         planMetadata={tonightPlan?.metadata}
         planLoading={planLoading}
         connectionOnly={connectionOnly}
-        colors={colors}
         styles={styles}
       />
     </GlassPanel>
