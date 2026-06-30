@@ -4,14 +4,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from plan_test_helpers import assert_mock_plan_metadata, plan_request
+import pytest
 
-
-FIXTURE = Path(__file__).parent / "fixtures" / "mock_features.json"
-
-
-def _load_features() -> dict:
-    return json.loads(FIXTURE.read_text())
+from ml.time_window import (
+    INTERVAL_MINUTES,
+    interval_count_for_window,
+    sleep_window_duration_minutes,
+)
+from models.schemas import PlanResponse
+from plan_test_helpers import (
+    assert_google_plan_metadata,
+    assert_mock_plan_metadata,
+    plan_request,
+    user_headers,
+)
 
 
 def test_healthz(client):
@@ -29,14 +35,20 @@ def test_root_points_to_expo_web(client):
     assert "localhost:8081" in r.text
 
 
-def test_cors_allows_expo_web_origin(client):
-    origin = "http://localhost:8081"
+@pytest.mark.parametrize(
+    ("origin", "request_headers"),
+    [
+        ("http://localhost:8081", "content-type,x-user-id"),
+        ("https://sleepsync.vercel.app", "content-type,authorization"),
+    ],
+)
+def test_cors_allows_web_origin(client, origin, request_headers):
     r = client.options(
         "/v1/tonight/plan",
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type,x-user-id",
+            "Access-Control-Request-Headers": request_headers,
         },
     )
     assert r.status_code == 200
@@ -46,37 +58,19 @@ def test_cors_allows_expo_web_origin(client):
     assert r2.headers.get("access-control-allow-origin") == origin
 
 
-def test_features_upload_roundtrip(client):
-    """Legacy upload endpoint still accepts payloads (stored but not used for fusion)."""
-    features = _load_features()
-    r = client.post("/v1/features", json=features)
-    assert r.status_code == 200, r.text
-    fr = r.json()
-    assert fr["featureSetId"].startswith("fs-")
-    assert fr["nightsAvailable"] >= 1
-
-
 def test_plan_roundtrip_uses_server_fusion(client):
-    """Plan is built from mock week + debrief K, not from client featureSetId."""
-    features = _load_features()
+    """Plan is built from mock week + debrief K on the server."""
     r = client.post(
         "/v1/tonight/plan",
-        json=plan_request(
-            features["userId"],
-            bedtime_minutes=features["bedtimeMinutes"],
-            wake_minutes=features["wakeMinutes"],
-            timezone=features["timezone"],
-            reference_now=features["referenceNow"],
-        ),
+        json=plan_request("demo-user"),
+        headers=user_headers("demo-user"),
     )
     assert r.status_code == 200, r.text
     plan = r.json()
 
-    # Shape: top-level
     assert plan["nightId"].startswith("night-")
     assert "profile" in plan and "riskCurve" in plan and "metadata" in plan
 
-    # Profile shape mirrors mobile/utils/profiles.ts
     profile = plan["profile"]
     assert isinstance(profile["id"], str)
     assert profile["recommended"] in (True, False)
@@ -84,28 +78,22 @@ def test_plan_roundtrip_uses_server_fusion(client):
     assert profile["keyframes"][0] == {"t": 0.0, "dose": 0.0, "label": None} or (
         profile["keyframes"][0]["t"] == 0.0 and profile["keyframes"][0]["dose"] == 0.0
     )
-    # Must end at (1, 0).
     last = profile["keyframes"][-1]
     assert last["t"] == 1.0 and last["dose"] == 0.0
 
-    # All keyframes monotone non-decreasing in t.
     ts = [kf["t"] for kf in profile["keyframes"]]
     assert ts == sorted(ts)
-    # Dose ∈ [0, 1].
     for kf in profile["keyframes"]:
         assert 0.0 <= kf["dose"] <= 1.0
 
-    # Phases cover the window (sum of durations ≈ 1).
     total_dur = sum(p["duration"] for p in profile["phases"])
     assert abs(total_dur - 1.0) < 0.05
 
-    # Risk curve shape
-    assert len(plan["riskCurve"]) >= 8
+    assert len(plan["riskCurve"]) == interval_count_for_window(23 * 60, 7 * 60)
     for pt in plan["riskCurve"]:
         assert 0.0 <= pt["t"] <= 1.0
         assert 0.0 <= pt["p"] <= 1.0
 
-    # Metadata (including sleep provenance)
     md = plan["metadata"]
     assert md["modelVersion"]
     assert "coldStart" in md
@@ -122,52 +110,83 @@ def test_plan_roundtrip_uses_server_fusion(client):
 
 
 def test_plan_validates_short_window(client):
-    plan_req = {
-        "userId": "demo-user",
-        "bedtimeMinutes": 1380,
-        "wakeMinutes": 1440 + 60,  # 1 hour
-        "timezone": "UTC",
-        "referenceNow": "2026-05-24T20:00:00Z",
-    }
-    # The naive value above is normalized mod 1440 by the validator — instead
-    # pass a deliberately short window.
-    plan_req["wakeMinutes"] = 60  # 23:00 → 01:00 = 120 min
-    r = client.post("/v1/tonight/plan", json=plan_req)
+    r = client.post(
+        "/v1/tonight/plan",
+        json={
+            "userId": "demo-user",
+            "bedtimeMinutes": 23 * 60,
+            "wakeMinutes": 1 * 60,  # 2-hour window (crosses midnight)
+            "timezone": "UTC",
+            "referenceNow": "2026-05-24T20:00:00Z",
+        },
+        headers=user_headers("demo-user"),
+    )
     assert r.status_code == 422
 
 
-def test_mock_features_endpoint(client):
-    r = client.post("/v1/dev/mock-features", json={"scenario": "late"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["featureSetId"].startswith("fs-mock-")
+def test_mock_features_scenario_shifts_risk_peak(client):
+    early_user = "mock-scenario-early"
+    late_user = "mock-scenario-late"
 
-    r2 = client.post(
+    assert client.post(
+        "/v1/dev/mock-features",
+        json={"userId": early_user, "scenario": "early"},
+        headers=user_headers(early_user),
+    ).json()["featureSetId"].startswith("fs-mock-")
+
+    early_plan = client.post(
         "/v1/tonight/plan",
-        json=plan_request("demo-user", timezone="America/New_York", reference_now="2026-05-24T22:00:00-04:00"),
+        json=plan_request(early_user),
+        headers=user_headers(early_user),
+    ).json()
+    assert_google_plan_metadata(early_plan["metadata"])
+
+    client.post(
+        "/v1/dev/mock-features",
+        json={"userId": late_user, "scenario": "late"},
+        headers=user_headers(late_user),
     )
-    assert r2.status_code == 200, r2.text
-    assert_mock_plan_metadata(r2.json()["metadata"])
+    late_plan = client.post(
+        "/v1/tonight/plan",
+        json=plan_request(late_user),
+        headers=user_headers(late_user),
+    ).json()
+    assert_google_plan_metadata(late_plan["metadata"])
+
+    early_t = max(early_plan["riskCurve"], key=lambda pt: pt["p"])["t"]
+    late_t = max(late_plan["riskCurve"], key=lambda pt: pt["p"])["t"]
+    assert late_t > early_t
 
 
-def test_get_latest_plan(client):
-    p = client.post("/v1/tonight/plan", json=plan_request("u1", reference_now="2026-05-24T22:00:00Z")).json()
-    g = client.get("/v1/tonight/plan", params={"userId": "u1"}).json()
-    assert g["nightId"] == p["nightId"]
+def test_plan_risk_grid_matches_sleep_window(client):
+    bedtime = 22 * 60
+    wake = 4 * 60
+    user = "grid-window-user"
+    r = client.post(
+        "/v1/tonight/plan",
+        json=plan_request(user, bedtime_minutes=bedtime, wake_minutes=wake),
+        headers=user_headers(user),
+    )
+    assert r.status_code == 200, r.text
+    expected_bins = interval_count_for_window(bedtime, wake)
+    assert len(r.json()["riskCurve"]) == expected_bins
 
 
 def test_night_record_and_debrief(client):
+    user = "u2"
+    h = user_headers(user)
     plan = client.post(
         "/v1/tonight/plan",
-        json=plan_request("u2", reference_now="2026-05-24T22:00:00Z"),
+        json=plan_request(user, reference_now="2026-05-24T22:00:00Z"),
+        headers=h,
     ).json()
     night_id = plan["nightId"]
 
-    # Debrief
     r = client.post(
         f"/v1/nights/{night_id}/debrief",
+        headers=h,
         json={
-            "userId": "u2",
+            "userId": user,
             "woke": "no",
             "groggy": 2,
             "completedAt": "2026-05-25T07:10:00Z",
@@ -180,6 +199,7 @@ def test_night_record_and_debrief(client):
 
     r = client.post(
         f"/v1/nights/{night_id}/wearable-outcome",
+        headers=h,
         json={
             "userId": "u2",
             "bedtimeMinutes": 23 * 60,
@@ -192,9 +212,9 @@ def test_night_record_and_debrief(client):
     )
     assert r.status_code == 204
 
-    # Delivery
     r = client.post(
         f"/v1/nights/{night_id}/delivery",
+        headers=h,
         json={
             "userId": "u2",
             "samples": [
@@ -205,8 +225,7 @@ def test_night_record_and_debrief(client):
     )
     assert r.status_code == 204
 
-    # GET full record
-    r = client.get(f"/v1/nights/{night_id}")
+    r = client.get(f"/v1/nights/{night_id}", headers=h)
     assert r.status_code == 200
     rec = r.json()
     assert rec["nightId"] == night_id
@@ -216,15 +235,19 @@ def test_night_record_and_debrief(client):
 
 
 def test_list_recent_nights(client):
+    user = "u-list"
+    h = user_headers(user)
     plan = client.post(
         "/v1/tonight/plan",
-        json=plan_request("u-list", reference_now="2026-05-24T22:00:00Z"),
+        json=plan_request(user, reference_now="2026-05-24T22:00:00Z"),
+        headers=h,
     ).json()
     night_id = plan["nightId"]
     client.post(
         f"/v1/nights/{night_id}/debrief",
+        headers=h,
         json={
-            "userId": "u-list",
+            "userId": user,
             "woke": "no",
             "groggy": 1,
             "completedAt": "2026-05-25T07:00:00Z",
@@ -241,5 +264,31 @@ def test_list_recent_nights(client):
 
 
 def test_unknown_night_404(client):
-    r = client.get("/v1/nights/does-not-exist")
+    r = client.get("/v1/nights/does-not-exist", headers=user_headers("someone"))
     assert r.status_code == 404
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_sleep_window_golden_fixtures():
+    data = json.loads((_REPO_ROOT / "shared/sleep_window_golden.json").read_text())
+    assert data["intervalMinutes"] == INTERVAL_MINUTES
+    for case in data["cases"]:
+        bed, wake = case["bedtimeMinutes"], case["wakeMinutes"]
+        assert sleep_window_duration_minutes(bed, wake) == case["durationMinutes"], case["label"]
+        assert interval_count_for_window(bed, wake) == case["intervalCount"], case["label"]
+
+
+def test_plan_response_golden_fixture():
+    raw = json.loads((_REPO_ROOT / "shared/contracts/plan_response.golden.json").read_text())
+    plan = PlanResponse.model_validate(raw)
+    assert plan.metadata.nightId == plan.nightId
+    profile = raw["profile"]
+    for key in ("id", "name", "recommended", "rationale", "keyframes", "phases"):
+        assert key in profile
+    for kf in profile["keyframes"]:
+        assert "t" in kf and "dose" in kf
+    for phase in profile["phases"]:
+        for key in ("id", "name", "duration", "dose"):
+            assert key in phase

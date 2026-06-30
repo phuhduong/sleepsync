@@ -1,7 +1,4 @@
-"""Plan orchestration — composes risk model + optimizer + persistence.
-
-Keeps the route layer thin. Classifier and optimizer remain independent
-modules; this is just the wiring layer."""
+"""Plan orchestration: risk model, optimizer, persistence."""
 from __future__ import annotations
 
 import uuid
@@ -11,31 +8,41 @@ from typing import Literal
 from ml.features import rollup_vector
 from ml.mock_sleep_bank import aggregate_mock_intervals
 from ml.optimizer import OptimizerConfig, optimize
+from ml.time_window import interval_count_for_window
 from ml.plan_inputs import (
     aggregate_interval_matrices,
     debrief_woke_rate,
     rollups_from_debriefs,
 )
-from ml.risk_model import RiskCurve, RiskModel
+from ml.risk_model import PopulationPrior, RiskCurve, RiskModel
 from models.schemas import (
     NightRecord,
     PlanMetadata,
     PlanRequest,
     PlanResponse,
-    RiskPoint,
 )
-from storage.repositories import Repository
+from storage.app_db import AppDB
 
 from .config import AppConfig
+from .config import is_development
+
+
+def _plan_response_from_record(record: NightRecord) -> PlanResponse:
+    return PlanResponse(
+        nightId=record.nightId,
+        profile=record.generatedProfile,
+        riskCurve=record.predictedRiskCurve,
+        metadata=record.metadata,
+    )
 
 
 def _resolve_open_night(
-    repo: Repository, request: PlanRequest
+    db: AppDB, request: PlanRequest
 ) -> tuple[str, NightRecord | None]:
     """Reuse an in-progress night (no debrief) instead of creating orphans on refresh."""
     existing: NightRecord | None = None
     if request.nightId:
-        candidate = repo.db.get_night(request.nightId)
+        candidate = db.get_night(request.nightId)
         if (
             candidate is not None
             and candidate.userId == request.userId
@@ -43,7 +50,7 @@ def _resolve_open_night(
         ):
             existing = candidate
     if existing is None:
-        existing = repo.db.find_open_night_for_user(
+        existing = db.find_open_night_for_user(
             request.userId, request.bedtimeMinutes, request.wakeMinutes
         )
     if existing is not None:
@@ -52,29 +59,45 @@ def _resolve_open_night(
 
 
 def _sleep_data_reason(
-    repo: Repository,
+    db: AppDB,
     user_id: str,
     *,
     using_google: bool,
-) -> Literal["not_connected", "connect_failed", "insufficient_data", "using_google"]:
+) -> Literal["not_connected", "insufficient_data", "using_google", "connect_failed"]:
     if using_google:
         return "using_google"
-    conn = repo.db.get_connection(user_id)
+    conn = db.get_connection(user_id)
     if conn is None:
         return "not_connected"
-    if repo.db.google_feature_count_for_user(user_id) == 0:
-        return "insufficient_data"
+    if conn.lastSyncReason == "connect_failed":
+        return "connect_failed"
     return "insufficient_data"
 
 
 def build_plan(
-    repo: Repository,
+    db: AppDB,
     risk_model: RiskModel,
     config: AppConfig,
     request: PlanRequest,
 ) -> PlanResponse:
-    grid_size = config.risk.grid_size
-    real_sets = repo.db.list_recent_feature_sets(request.userId, k=7)
+    reference_now = request.referenceNow
+    if not is_development():
+        reference_now = datetime.now(timezone.utc)
+
+    request = request.model_copy(update={"referenceNow": reference_now})
+    night_id, existing = _resolve_open_night(db, request)
+    if (
+        existing is not None
+        and not request.forceRegenerate
+        and existing.bedtimeMinutes == request.bedtimeMinutes
+        and existing.wakeMinutes == request.wakeMinutes
+    ):
+        return _plan_response_from_record(existing)
+
+    grid_size = interval_count_for_window(
+        request.bedtimeMinutes, request.wakeMinutes
+    )
+    real_sets = db.list_recent_feature_sets(request.userId, k=7)
 
     if real_sets:
         payload = aggregate_interval_matrices(
@@ -98,29 +121,31 @@ def build_plan(
             reference_now=request.referenceNow,
         )
         sleep_source = "mock"
-        sleep_reason = _sleep_data_reason(repo, request.userId, using_google=False)
+        sleep_reason = _sleep_data_reason(db, request.userId, using_google=False)
 
-    debriefs = repo.db.list_recent_debriefs(request.userId, k=7)
+    debriefs = db.list_recent_debriefs(request.userId, k=7)
     rollups = rollups_from_debriefs(debriefs)
     woke_rate = debrief_woke_rate(debriefs)
     rv = rollup_vector(rollups, woke_rate_7d=woke_rate)
-
-    google_nights = repo.db.google_feature_count_for_user(request.userId)
-    debrief_count = len(debriefs)
-    cold_start = debrief_count < 3 and google_nights < 2
 
     risk = risk_model.predict(
         payload,
         rv,
         grid_size=grid_size,
-        nights_available=google_nights,
+        nights_available=max(
+            db.google_feature_count_for_user(request.userId),
+            len(debriefs),
+        ),
         cold_start_threshold=config.risk.cold_start_threshold,
+        population_prior=PopulationPrior(
+            peak_t=config.risk.prior_peak_t,
+            peak_width=config.risk.prior_peak_width,
+            baseline=config.risk.prior_baseline,
+            peak_height=config.risk.prior_peak_height,
+        ),
     )
-    if cold_start:
-        risk = RiskCurve(t_centers=risk.t_centers, p=risk.p, cold_start=True)
 
     rationale = _rationale_for(risk)
-    night_id, existing = _resolve_open_night(repo, request)
     profile_id = f"generated-{datetime.now(timezone.utc).date().isoformat()}-{night_id[-6:]}"
 
     opt_config: OptimizerConfig = config.optimizer
@@ -152,7 +177,7 @@ def build_plan(
         constraints_hit.append("groggy_taper")
 
     metadata = PlanMetadata(
-        modelVersion=config.model_version,
+        modelVersion=f"{risk_model.version}-{config.versions.optimizer}",
         coldStart=risk.cold_start,
         constraintsHit=constraints_hit,
         generatedAt=datetime.now(timezone.utc),
@@ -176,7 +201,7 @@ def build_plan(
         debrief=None,
         createdAt=existing.createdAt if existing else datetime.now(timezone.utc),
     )
-    repo.db.put_night(record)
+    db.put_night(record)
 
     return PlanResponse(
         nightId=night_id,
@@ -197,7 +222,3 @@ def _rationale_for(risk: RiskCurve) -> str:
     else:
         band = "pre-wake"
     return f"Higher wake risk in the {band}; sustained release with pre-wake taper."
-
-
-def risk_to_points(risk: RiskCurve) -> list[RiskPoint]:
-    return risk.as_points()

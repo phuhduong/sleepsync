@@ -4,14 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/tokens';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
 import { SmallCapsLabel } from './SmallCapsLabel';
-import type { SessionRecord } from '../utils/profiles';
-import { sessionAccessibilityLabel, sessionListTitle } from '../utils/sessionDisplay';
+import type { SessionRecord } from '../domain/profiles';
+import { sessionAccessibilityLabel } from '../domain/sessionPresentation';
 
 const RAIL_W = 44;
 const ROW_MIN_H = 96;
 const NODE = 15;
 const SPINE_W = 3;
-/** Centers spine in the rail column */
 const SPINE_LEFT = (RAIL_W - SPINE_W) / 2;
 
 type Props = {
@@ -47,7 +46,7 @@ function TimelineRow({
       <View style={styles.body}>
         <SmallCapsLabel style={{ marginBottom: 5 }}>{session.date}</SmallCapsLabel>
         <Text style={[styles.profile, { color: colors.text }]} numberOfLines={2}>
-          {sessionListTitle(session)}
+          {session.summary}
         </Text>
       </View>
 
@@ -91,7 +90,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     position: 'relative',
   },
-  /** Single continuous stroke — nodes stack above with z-index and opaque fills */
   spine: {
     position: 'absolute',
     left: SPINE_LEFT,
@@ -120,7 +118,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: ROW_MIN_H,
   },
-  /** Uniform markers — outcome lives on the detail screen (VoiceOver still gets outcome here). */
   node: {
     width: NODE + 6,
     height: NODE + 6,

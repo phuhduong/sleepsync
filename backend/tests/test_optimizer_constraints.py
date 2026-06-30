@@ -20,11 +20,9 @@ def test_dose_bounds_and_endpoints(peak: float):
     res = optimize(p, t, cfg)
     kfs = res.profile.keyframes
 
-    # Dose ∈ [0, 1] on every keyframe.
     for kf in kfs:
         assert 0.0 <= kf.dose <= cfg.dose_max + 1e-9, kf
 
-    # First and last keyframes are zero (start of window, end of window).
     assert kfs[0].t == 0.0 and kfs[0].dose == 0.0
     assert kfs[-1].t == 1.0 and kfs[-1].dose == 0.0
 
@@ -36,12 +34,9 @@ def test_min_delay_and_taper_bounds(peak: float):
     res = optimize(p, t, cfg)
     kfs = res.profile.keyframes
 
-    # The first non-zero rise must come no earlier than min_delay_t.
-    # Keyframe order: [(0,0), (t_delay,0), (t_ramp, peak), ...]
     assert kfs[1].dose == 0.0
     assert kfs[1].t >= cfg.min_delay_t - 1e-6
 
-    # Taper start (4th keyframe, end of sustained) ≤ taper_start_t_max.
     assert kfs[3].t <= cfg.taper_start_t_max + 1e-6
 
 
@@ -52,8 +47,6 @@ def test_max_rate_respected_on_dense_grid(peak: float):
     res = optimize(p, t, cfg)
     dose = res.raw_dose_curve
 
-    # On the same grid the optimizer was scored against, |Δdose| ≤ max_per_interval
-    # (modest tolerance for piecewise-linear interp aliasing).
     deltas = np.abs(np.diff(dose))
     assert deltas.max() <= cfg.max_dose_per_interval + 0.05
 
@@ -81,5 +74,4 @@ def test_responds_to_risk_peak_location():
 def test_constraint_hits_recorded():
     p, t = _risk(0.65)
     res = optimize(p, t, OptimizerConfig())
-    # taper_wake is always enforced by construction.
     assert "taper_wake" in res.constraints_hit

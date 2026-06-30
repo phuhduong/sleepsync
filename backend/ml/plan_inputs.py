@@ -1,4 +1,3 @@
-"""Fuse stored feature sets and debrief history into plan inputs."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,10 +14,8 @@ from ml.features import (
     RESP_REF_STD,
     interval_feature_matrix,
 )
+from ml.time_window import INTERVAL_MINUTES
 from models.schemas import DebriefRequest, FeatureRollups, FeaturesPayload, IntervalFeature, StageFractions
-
-INTERVAL_MINUTES = 15
-
 
 def aggregate_interval_matrices(
     payloads: list[FeaturesPayload],
@@ -74,24 +71,6 @@ def aggregate_interval_matrices(
         intervalMinutes=INTERVAL_MINUTES,
         intervals=intervals,
         rollups=None,
-    )
-
-
-def aggregate_intervals(
-    payloads: list[FeaturesPayload],
-    grid_size: int,
-    request: FeaturesPayload,
-) -> FeaturesPayload:
-    """Mean K stored nights onto the plan grid (alias using request metadata)."""
-    return aggregate_interval_matrices(
-        payloads,
-        grid_size=grid_size,
-        user_id=request.userId,
-        timezone=request.timezone,
-        reference_now=request.referenceNow,
-        bedtime_minutes=request.bedtimeMinutes,
-        wake_minutes=request.wakeMinutes,
-        source=payloads[0].source if payloads else "google_health",
     )
 
 

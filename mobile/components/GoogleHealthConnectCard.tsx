@@ -4,66 +4,15 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { GlassPanel } from './GlassPanel';
 import { PrimaryCTA } from './PrimaryCTA';
 import { SmallCapsLabel } from './SmallCapsLabel';
-import { googleHealthStatusLine } from '../utils/planCopy';
-import type { PlanMetadata } from '../utils/apiTypes';
-import { useAppState } from '../state/AppState';
+import { googleHealthStatusLine } from '../domain/planCopy';
+import { useTonightPlan } from '../state/TonightPlanContext';
 import { useGoogleHealth } from '../state/GoogleHealthContext';
 
 type Props = {
-  /** Embedded in Tonight bottom sheet — no outer glass shell. */
   compact?: boolean;
-  /** When true, show plan-build spinner in the data-source line. */
   planLoading?: boolean;
-  /**
-   * On Tonight, provenance lives under the profile name. The card only shows
-   * connection and sync time.
-   */
   connectionOnly?: boolean;
 };
-
-function ConnectBody({
-  compact,
-  gh,
-  planMetadata,
-  planLoading,
-  connectionOnly,
-  styles,
-}: {
-  compact: boolean;
-  gh: ReturnType<typeof useGoogleHealth>;
-  planMetadata?: PlanMetadata;
-  planLoading: boolean;
-  connectionOnly: boolean;
-  styles: {
-    status: object;
-    statusCompact: object;
-    error: object;
-  };
-}) {
-  const connected = gh.connected;
-  const label = connected ? 'Disconnect Google Health' : 'Connect Google Health';
-  const onPress = () => (connected ? gh.disconnect() : gh.connect());
-  const showSectionLabel = !connectionOnly;
-
-  return (
-    <>
-      {showSectionLabel ? (
-        <SmallCapsLabel style={compact ? { marginTop: 16 } : undefined}>
-          {connectionOnly ? 'Google Health' : 'Data source'}
-        </SmallCapsLabel>
-      ) : null}
-      {!connectionOnly ? (
-        <Text style={compact ? styles.statusCompact : styles.status}>
-          {googleHealthStatusLine(gh.status, gh.loading, planMetadata, planLoading, {
-            connectionOnly,
-          })}
-        </Text>
-      ) : null}
-      <PrimaryCTA label={label} onPress={onPress} loading={gh.busy} />
-      {gh.error ? <Text style={styles.error}>{gh.error}</Text> : null}
-    </>
-  );
-}
 
 export function GoogleHealthConnectCard({
   compact = false,
@@ -71,7 +20,7 @@ export function GoogleHealthConnectCard({
   connectionOnly = false,
 }: Props) {
   const gh = useGoogleHealth();
-  const { tonightPlan } = useAppState();
+  const { plan: tonightPlan } = useTonightPlan();
   const styles = useThemedStyles((c) => ({
     compactWrap: {
       marginTop: 24,
@@ -104,31 +53,37 @@ export function GoogleHealthConnectCard({
 
   if (!gh.enabled) return null;
 
+  const connected = gh.connected;
+  const label = connected ? 'Disconnect Google Health' : 'Connect Google Health';
+  const onPress = () => (connected ? gh.disconnect() : gh.connect());
+  const statusStyle = compact ? styles.statusCompact : styles.status;
+
+  const body = (
+    <>
+      {!connectionOnly ? (
+        <SmallCapsLabel style={compact ? { marginTop: 16 } : undefined}>
+          {connectionOnly ? 'Google Health' : 'Data source'}
+        </SmallCapsLabel>
+      ) : null}
+      {!connectionOnly ? (
+        <Text style={statusStyle}>
+          {googleHealthStatusLine(gh.status, gh.loading, tonightPlan?.metadata, planLoading, {
+            connectionOnly,
+          })}
+        </Text>
+      ) : null}
+      <PrimaryCTA label={label} onPress={onPress} loading={gh.busy} />
+      {gh.error ? <Text style={styles.error}>{gh.error}</Text> : null}
+    </>
+  );
+
   if (compact) {
-    return (
-      <View style={styles.compactWrap}>
-        <ConnectBody
-          compact
-          gh={gh}
-          planMetadata={tonightPlan?.metadata}
-          planLoading={planLoading}
-          connectionOnly={connectionOnly}
-          styles={styles}
-        />
-      </View>
-    );
+    return <View style={styles.compactWrap}>{body}</View>;
   }
 
   return (
     <GlassPanel variant="card" style={{ marginTop: 20 }}>
-      <ConnectBody
-        compact={false}
-        gh={gh}
-        planMetadata={tonightPlan?.metadata}
-        planLoading={planLoading}
-        connectionOnly={connectionOnly}
-        styles={styles}
-      />
+      {body}
     </GlassPanel>
   );
 }

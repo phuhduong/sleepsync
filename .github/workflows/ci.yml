@@ -27,11 +27,24 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" && pip install pip-audit bandit
+
+      - name: Security audit (Python)
+        run: pip-audit
+
+      - name: SAST (Bandit)
+        run: bandit -r app ml storage integrations security -ll
+
+      - name: Run Alembic migrations
+        env:
+          SLEEPSYNC_DB_PATH: ${{ runner.temp }}/sleepsync-test.db
+          SLEEPSYNC_ENV: development
+        run: alembic upgrade head
 
       - name: Run tests
         env:
           SLEEPSYNC_DB_PATH: ${{ runner.temp }}/sleepsync-test.db
+          SLEEPSYNC_ENV: development
         run: pytest -q
 
   mobile:
@@ -57,3 +70,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Build web export
+        run: npm run build
+
+      - name: Security audit (npm)
+        run: npm audit --audit-level=high

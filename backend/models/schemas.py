@@ -1,8 +1,4 @@
-"""Pydantic request/response models (OpenAPI at /docs).
-
-Field names use camelCase to match the JSON contract directly so mobile
-can consume them without remapping.
-"""
+"""Pydantic models; camelCase JSON matches mobile."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,8 +6,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-# ---------- Shared profile types (must match mobile/utils/profiles.ts) ----------
 
 
 class Keyframe(BaseModel):
@@ -42,8 +36,6 @@ class Profile(BaseModel):
     phases: list[Phase]
 
 
-# ---------- Risk + metadata ----------
-
 
 class RiskPoint(BaseModel):
     t: float = Field(..., ge=0.0, le=1.0)
@@ -65,8 +57,6 @@ class PlanMetadata(BaseModel):
         "using_google",
     ] = "not_connected"
 
-
-# ---------- Feature ingest ----------
 
 
 class StageFractions(BaseModel):
@@ -121,20 +111,17 @@ class FeaturesResponse(BaseModel):
     nightsAvailable: int
 
 
-# ---------- Plan ----------
-
 
 class PlanRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    userId: str
-    featureSetId: Optional[str] = None
-    """When set, refresh plan on this night if it has no debrief yet."""
+    userId: Optional[str] = None
     nightId: Optional[str] = None
     bedtimeMinutes: int = Field(..., ge=0, lt=1440)
     wakeMinutes: int = Field(..., ge=0, lt=1440)
     timezone: str
     referenceNow: datetime
+    forceRegenerate: bool = False
 
 
 class PlanResponse(BaseModel):
@@ -144,13 +131,11 @@ class PlanResponse(BaseModel):
     metadata: PlanMetadata
 
 
-# ---------- Debrief / delivery / outcome ----------
-
 
 class DebriefRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    userId: str
+    userId: Optional[str] = None
     woke: Literal["yes", "no", "unsure"]
     groggy: int = Field(..., ge=1, le=5)
     note: Optional[str] = None
@@ -159,8 +144,12 @@ class DebriefRequest(BaseModel):
     startedAt: datetime
 
 
+class StoredDebrief(DebriefRequest):
+    outcome: Optional[Literal["good", "ok"]] = None
+    summary: Optional[str] = None
+
+
 class DebriefResponse(BaseModel):
-    sessionId: str
     outcome: Literal["good", "ok"]
     summary: str
 
@@ -175,7 +164,7 @@ class DeliverySample(BaseModel):
 
 
 class DeliveryRequest(BaseModel):
-    userId: str
+    userId: Optional[str] = None
     samples: list[DeliverySample]
 
 
@@ -184,7 +173,7 @@ class WearableOutcomeRequest(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    userId: str
+    userId: Optional[str] = None
     bedtimeMinutes: int = Field(..., ge=0, lt=1440)
     wakeMinutes: int = Field(..., ge=0, lt=1440)
     actualBedtime: Optional[datetime] = None
@@ -193,6 +182,7 @@ class WearableOutcomeRequest(BaseModel):
     minutesAwake: Optional[float] = Field(default=None, ge=0.0)
     fragmentationIndex: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     intervals: list[IntervalFeature] = Field(default_factory=list)
+    verified: bool = False
 
 
 class NightRecord(BaseModel):
@@ -205,7 +195,7 @@ class NightRecord(BaseModel):
     metadata: PlanMetadata
     deliverySamples: list[DeliverySample] = Field(default_factory=list)
     wearableOutcome: Optional[WearableOutcomeRequest] = None
-    debrief: Optional[DebriefRequest] = None
+    debrief: Optional[StoredDebrief] = None
     createdAt: datetime
 
     @model_validator(mode="before")
@@ -217,12 +207,8 @@ class NightRecord(BaseModel):
         return data
 
 
-# ---------- Google Health API (OAuth + sync) ----------
-
 
 class GoogleHealthStatus(BaseModel):
-    """Connection state for the Connect Google Health UI."""
-
     connected: bool
     lastSyncAt: Optional[datetime] = None
     scopes: list[str] = Field(default_factory=list)
@@ -238,7 +224,6 @@ class GoogleHealthCallbackRequest(BaseModel):
 
     code: str
     state: Optional[str] = None
-    # Must match the redirect used to obtain the code; falls back to server default.
     redirectUri: Optional[str] = None
 
 
@@ -249,7 +234,7 @@ class GoogleHealthSyncRequest(BaseModel):
     wakeMinutes: int = Field(..., ge=0, lt=1440)
     timezone: str
     referenceNow: datetime | None = None
-    """Deprecated — use server wall clock via ``dataNow``."""
+    """Deprecated. Use ``dataNow``."""
     dataNow: datetime | None = None
 
 
@@ -258,8 +243,7 @@ class GoogleHealthOutcomeSyncRequest(GoogleHealthSyncRequest):
 
 
 class GoogleHealthConnection(BaseModel):
-    """Internal token record (never serialized to clients). Refresh/access
-    tokens are stored ciphertext-only via security/token_cipher.py."""
+    """Internal token record (never serialized to clients). Tokens stored as Fernet ciphertext."""
 
     userId: str
     accessTokenEnc: str
@@ -268,9 +252,8 @@ class GoogleHealthConnection(BaseModel):
     expiresAt: datetime
     connectedAt: datetime
     lastSyncAt: Optional[datetime] = None
+    lastSyncReason: Optional[Literal["connect_failed", "insufficient_data"]] = None
 
-
-# ---------- Dev / health ----------
 
 
 class MockFeaturesRequest(BaseModel):
@@ -281,8 +264,17 @@ class MockFeaturesRequest(BaseModel):
     userId: Optional[str] = None
     bedtimeMinutes: Optional[int] = Field(default=None, ge=0, lt=1440)
     wakeMinutes: Optional[int] = Field(default=None, ge=0, lt=1440)
-    # Optional scenario hint to skew the seeded risk shape ("early"/"middle"/"late").
     scenario: Optional[Literal["early", "middle", "late"]] = None
+
+
+class MigrateAccountRequest(BaseModel):
+    fromUserId: str
+
+
+class MigrateAccountResponse(BaseModel):
+    nightsMoved: int
+    featureSetsMoved: int
+    connectionMoved: bool = False
 
 
 class HealthResponse(BaseModel):

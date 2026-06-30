@@ -1,6 +1,7 @@
 """Heuristic: is a binned sleep window usable for personalization?"""
 from __future__ import annotations
 
+from ml.time_window import INTERVAL_MINUTES
 from models.schemas import IntervalFeature
 
 
@@ -16,7 +17,7 @@ def _bin_has_staged_sleep(iv: IntervalFeature) -> bool:
         return True
     if (iv.minutesAwake or 0.0) > 0.5:
         return True
-    # Pure light-only prior (awake=0, only light) from empty segment overlap.
+    # Pure light-only prior from empty segment overlap.
     light = float(sf.light or 0.0)
     return light < 0.99 or awake > 0.0
 
@@ -29,7 +30,7 @@ def assess_sufficient(intervals: list[IntervalFeature]) -> bool:
     if coverage < 0.40:
         return False
     minutes_awake = sum(float(iv.minutesAwake or 0.0) for iv in intervals)
-    bin_mins = 15.0  # matches INTERVAL_MINUTES default grid step
+    bin_mins = float(INTERVAL_MINUTES)
     staged_minutes = 0.0
     for iv in intervals:
         sf = iv.stageFractions

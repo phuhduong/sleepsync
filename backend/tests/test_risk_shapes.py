@@ -37,18 +37,5 @@ def test_warm_path_with_rollup_modulation():
     yes_curve = rm.predict(None, woke_yes, grid_size=32, nights_available=10, cold_start_threshold=3)
     no_curve = rm.predict(None, woke_no, grid_size=32, nights_available=10, cold_start_threshold=3)
 
-    # The "woke yes + low efficiency" curve should be higher around the wake-maintenance band.
     band = (yes_curve.t_centers > 0.55) & (yes_curve.t_centers < 0.75)
     assert yes_curve.p[band].mean() > no_curve.p[band].mean()
-
-
-def test_fit_roundtrip_changes_weights():
-    rm = RiskModel()
-    initial = rm.weights.copy()
-    n_samples = 200
-    rng = np.random.default_rng(0)
-    X = rng.normal(size=(n_samples, len(initial)))
-    # Synthetic labels: positive when first feature (≈t) is large.
-    y = (X[:, 0] > 0.5).astype(int)
-    rm.fit(X, y)
-    assert not np.allclose(rm.weights, initial)

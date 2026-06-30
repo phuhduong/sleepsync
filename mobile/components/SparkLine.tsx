@@ -1,13 +1,12 @@
 import Svg, { Line, Path } from 'react-native-svg';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
+import { smoothPathFromPoints } from '../domain/curveMath';
 
 type Props = {
   data: number[];
   width?: number;
   height?: number;
-  /** Faint horizontal baseline at the bottom of the plot area. */
   showBaseline?: boolean;
-  /** Fixed Y scale (e.g. grogginess 1–5). Defaults to data min/max. */
   valueMin?: number;
   valueMax?: number;
 };
@@ -31,18 +30,10 @@ export function SparkLine({
   const range = scaleMax - scaleMin || 1;
   const yFor = (v: number) => padY + plotH - ((v - scaleMin) / range) * plotH;
 
-  // One night → flat segment across the chart (same path style as multi-night).
   const series = data.length === 1 ? [data[0], data[0]] : data;
   const xStep = width / (series.length - 1);
   const pts = series.map((v, i) => [i * xStep, yFor(v)] as [number, number]);
-
-  let d = `M${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1];
-    const [x1, y1] = pts[i];
-    const cpx = (x0 + x1) / 2;
-    d += ` C${cpx},${y0} ${cpx},${y1} ${x1},${y1}`;
-  }
+  const d = smoothPathFromPoints(pts);
 
   return (
     <Svg width={width} height={height}>

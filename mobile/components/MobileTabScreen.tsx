@@ -6,7 +6,6 @@ import { runOnJS } from 'react-native-reanimated';
 import { BackgroundCanvas } from './BackgroundCanvas';
 import { useCircadianColors, useCircadianSky } from '../theme/CircadianThemeProvider';
 
-/** Matches tab column layouts — content + aurora stay inside this width on wide viewports (e.g. web). */
 export const MOBILE_COLUMN_MAX = 390;
 
 const SWIPE_GAIN = 0.52;
@@ -18,15 +17,10 @@ function clampMag(v: number, mag: number) {
 
 type MobileTabScreenProps = {
   children: ReactNode;
-  /** `false`: column uses app background grey (`colors.bg`); wide gutters stay `#07080C`. */
   aurora?: boolean;
-  /** Pan/swipe nudges the aurora (Tonight only). Requires children to use `pointerEvents="box-none"` where touches should pass through. */
   auroraInteractive?: boolean;
 };
 
-/**
- * Full-screen tab shell: `#07080C` outside the mobile column on wide layouts; in-column either aurora or `colors.bg`.
- */
 export function MobileTabScreen({
   children,
   aurora = true,

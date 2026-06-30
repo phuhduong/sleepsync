@@ -5,10 +5,6 @@ import { useCircadianColors } from '../../theme/CircadianThemeProvider';
 import { fonts } from '../../theme/tokens';
 import { useGoogleHealth } from '../../state/GoogleHealthContext';
 
-/**
- * OAuth return landing (web + deep link). Google redirects to the backend;
- * the backend redirects here with ?connected=1 or ?error=….
- */
 export default function GoogleHealthCallbackScreen() {
   const router = useRouter();
   const colors = useCircadianColors();
@@ -29,9 +25,8 @@ export default function GoogleHealthCallbackScreen() {
     (async () => {
       if (!failed) {
         try {
-          await refresh();
+          await refresh({ force: true });
         } catch {
-          /* status refresh is best-effort */
         }
       }
       if (!cancelled) {

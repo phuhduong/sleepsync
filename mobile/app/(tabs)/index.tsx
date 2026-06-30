@@ -1,67 +1,54 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '../../theme/tokens';
 import { useAppNow } from '../../theme/CircadianThemeProvider';
-import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../../utils/profiles';
-import { formatMinutesAsTime12h } from '../../utils/sleepSchedule';
-import { canApplyPatch } from '../../utils/sleepWindow';
+import { OFFLINE_PROFILE } from '../../domain/profiles';
+import { formatMinutesAsTime12h, formatDateAsClock } from '../../domain/sleepSchedule';
+import { canApplyTonight } from '../../domain/applyGates';
 import { useAppState } from '../../state/AppState';
+import { useTonightPlan } from '../../state/TonightPlanContext';
 import { MobileTabScreen, MOBILE_COLUMN_MAX } from '../../components/MobileTabScreen';
 import { PrimaryCTA } from '../../components/PrimaryCTA';
 import { StatNumber } from '../../components/StatNumber';
 import { ScheduleTimePickerModal } from '../../components/ScheduleTimePickerModal';
-import { useTonightPlan } from '../../utils/useTonightPlan';
 import { useGoogleHealth } from '../../state/GoogleHealthContext';
 import { GlassPanel } from '../../components/GlassPanel';
 import { GoogleHealthConnectCard } from '../../components/GoogleHealthConnectCard';
-import { planStatusLine } from '../../utils/planCopy';
-import { subscribeSessionLog } from '../../utils/sessionLog';
-
-const formatTime = (d: Date) =>
-  d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-const formatDate = (d: Date) =>
-  d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+import { PatchConnectCard } from '../../components/PatchConnectCard';
+import { planStatusLine } from '../../domain/planCopy';
+import { usePatchBle } from '../../hooks/usePatchBle';
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    bedtimeMinutes,
-    setBedtimeMinutes,
-    wakeMinutes,
-    setWakeMinutes,
-    tonightPlan,
-  } = useAppState();
-  const profile = tonightPlan?.profile ?? findProfile(OFFLINE_FALLBACK_PROFILE_ID);
+  const { bedtimeMinutes, setBedtimeMinutes, wakeMinutes, setWakeMinutes } = useAppState();
+  const { plan: tonightPlan, status, source, error: planError, retry: retryPlan, ghSyncWarning } =
+    useTonightPlan();
+  const profile = tonightPlan?.profile ?? OFFLINE_PROFILE;
 
   const appNow = useAppNow();
   const [pickerTarget, setPickerTarget] = useState<'bed' | 'wake' | null>(null);
-  const [focusKey, setFocusKey] = useState(0);
-  useFocusEffect(
-    useCallback(() => {
-      setFocusKey((k) => k + 1);
-    }, []),
-  );
-
-  useEffect(() => subscribeSessionLog(() => {
-    setFocusKey((k) => k + 1);
-  }), []);
 
   const gh = useGoogleHealth();
-  const { status, source } = useTonightPlan({
-    appNow,
-    focusKey,
-    googleHealthConnected: gh.connected,
-  });
+  const { connected: patchConnected, enabled: patchBleEnabled } = usePatchBle();
 
-  const applyAllowed = canApplyPatch(appNow, bedtimeMinutes, wakeMinutes);
+  const { allowed: canApply, hint: blockHint, showRetry } = canApplyTonight({
+    now: appNow,
+    bedtimeMinutes,
+    wakeMinutes,
+    patchConnected,
+    bleEnabled: patchBleEnabled,
+    source,
+    planError,
+  });
   const statusLine = planStatusLine({
     tonightPlan,
     status,
     source,
     ghStatus: gh.status,
+    ghSyncWarning,
   });
 
   return (
@@ -72,7 +59,8 @@ export default function HomeScreen() {
           sleepsync
         </Text>
         <Text style={styles.timeStamp} pointerEvents="none">
-          {formatTime(appNow)} · {formatDate(appNow)}
+          {formatDateAsClock(appNow)} ·{' '}
+          {appNow.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </Text>
       </View>
 
@@ -124,16 +112,21 @@ export default function HomeScreen() {
           connectionOnly
           planLoading={status === 'loading' && !tonightPlan}
         />
+        <PatchConnectCard />
         <PrimaryCTA
           label="Apply Patch Tonight"
-          disabled={!applyAllowed}
+          disabled={!canApply}
           onPress={() => router.push('/live' as never)}
         />
-        {!applyAllowed ? (
-          <Text style={styles.applyBlockedHint}>
-            In your sleep window, adjust bedtime above
-          </Text>
-        ) : null}
+        <View style={styles.applyHintSlot}>
+          {showRetry && blockHint ? (
+            <Pressable onPress={retryPlan} accessibilityRole="button">
+              <Text style={styles.applyBlockedHint}>{blockHint}</Text>
+            </Pressable>
+          ) : blockHint ? (
+            <Text style={styles.applyBlockedHint}>{blockHint}</Text>
+          ) : null}
+        </View>
       </GlassPanel>
 
       <ScheduleTimePickerModal
@@ -204,8 +197,12 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   timeRow: { flexDirection: 'row', alignItems: 'center' },
-  applyBlockedHint: {
+  applyHintSlot: {
+    minHeight: 38,
     marginTop: 12,
+    justifyContent: 'center',
+  },
+  applyBlockedHint: {
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 19,

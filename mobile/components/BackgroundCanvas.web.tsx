@@ -2,13 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { WithSkiaWeb } from '@shopify/react-native-skia/lib/module/web';
 import type { BackgroundCanvasProps, SkyUniforms } from './backgroundCanvasTypes';
 import { CIRCADIAN_ANCHORS } from '../theme/circadianPalettes';
-
-function skyRgbCss(rgb: [number, number, number]): string {
-  const r = Math.round(rgb[0] * 255);
-  const g = Math.round(rgb[1] * 255);
-  const b = Math.round(rgb[2] * 255);
-  return `rgb(${r},${g},${b})`;
-}
+import { unitRgbCss } from '../theme/colorUtils';
 
 export type { BackgroundCanvasProps };
 
@@ -22,13 +16,12 @@ function SolidFallback({ width, height, sky }: BackgroundCanvasProps) {
   };
   return (
     <View
-      style={[styles.fallback, { width: W, height: H, backgroundColor: skyRgbCss(s.horizon) }]}
+      style={[styles.fallback, { width: W, height: H, backgroundColor: unitRgbCss(s.horizon) }]}
       pointerEvents="none"
     />
   );
 }
 
-/** Web — CanvasKit loads once via `WithSkiaWeb`, then the Aurora canvas chunk (matches native shader). */
 export function BackgroundCanvas(props: BackgroundCanvasProps) {
   return (
     <WithSkiaWeb

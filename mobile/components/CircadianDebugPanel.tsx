@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useCircadianDev,
+  useCircadianTheme,
+  DEMO_FULL_SESSION_SECONDS,
+} from '../theme/CircadianThemeProvider';
 import { CIRCADIAN_DEBUG_PRESETS } from '../theme/circadianSchedule';
-import { useCircadianDev, useCircadianTheme } from '../theme/CircadianThemeProvider';
-import { formatDateAsClock, minutesSinceMidnight } from '../theme/simulatedTime';
+import { formatDateAsClock, minutesSinceMidnight } from '../domain/sleepSchedule';
 import { fonts } from '../theme/tokens';
-import { DEMO_FULL_SESSION_SECONDS } from '../utils/sessionDemo';
-import { clearCachedPlan, purgeDevBackend } from '../utils/apiClient';
-import { clearSessions } from '../utils/sessionLog';
+import { clearCachedPlan } from '../services/planService';
+import { purgeDevBackend } from '../services/googleHealthApi';
+import { clearSessions } from '../services/sessionLog';
 import { useAppState } from '../state/AppState';
+import { useTonightPlan } from '../state/TonightPlanContext';
 
-/**
- * Dev-only overlay to scrub or fast-forward simulated time. Stripped from production (`__DEV__`).
- */
 export function CircadianDebugPanel() {
   const dev = useCircadianDev();
   const { phaseLabel, blendT, appNow } = useCircadianTheme();
-  const { clearPendingSession, setTonightPlan } = useAppState();
+  const { clearPendingSession } = useAppState();
+  const { clearPlan } = useTonightPlan();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
@@ -43,7 +46,7 @@ export function CircadianDebugPanel() {
       await clearCachedPlan();
       await purgeDevBackend();
       clearPendingSession();
-      setTonightPlan(null);
+      clearPlan();
       setClearHistoryArmed(false);
     } catch (e) {
       if (__DEV__) console.warn('[dev] clear history failed', e);
@@ -118,8 +121,8 @@ export function CircadianDebugPanel() {
 
           <View style={styles.sectionDivider} />
           <Text style={styles.sectionLabel}>
-            Fast-forward simulated clock — theme, Live session, and Live header time (~
-            {DEMO_FULL_SESSION_SECONDS}s wall ≈ full night)
+            Fast-forward clock for theme and Live. {DEMO_FULL_SESSION_SECONDS}s wall time is one
+            full night.
           </Text>
           <View style={styles.stepRow}>
             <Pressable
@@ -145,8 +148,7 @@ export function CircadianDebugPanel() {
 
           <View style={styles.sectionDivider} />
           <Text style={styles.sectionLabel}>
-            History — clears local sessions, cached plan, and backend SQLite for this user
-            (nights, features, Google Health connection). History tab updates immediately.
+            Clears sessions, plan cache, and backend data for this user. History refreshes.
           </Text>
           <View style={styles.clearRow}>
             <Pressable

@@ -5,17 +5,19 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from cryptography.fernet import Fernet
+
+from ml.time_window import interval_count_for_window, sleep_window_duration_minutes
 from integrations.google_health import (
     TokenBundle,
-    interval_count_for_window,
-    sleep_window_duration_minutes,
-    synthetic_features,
 )
+from synthetic_google_health import synthetic_features
 
 
 def enable_google_oauth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
     from app.config import get_config
 
     get_config.cache_clear()

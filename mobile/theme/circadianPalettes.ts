@@ -1,6 +1,5 @@
 import { rgba } from './colorUtils';
 
-/** UI + sky anchors for circadian blending (0–1 RGB triples for shader). */
 export type CircadianAnchorId = 'night' | 'sunriseSunset' | 'day';
 
 export type SkyAnchor = {
@@ -109,7 +108,6 @@ export const CIRCADIAN_ANCHORS: Record<CircadianAnchorId, CircadianAnchor> = {
   },
 };
 
-/** Fixed semantic colors (not circadian). */
 export const SEMANTIC_COLORS = {
   danger: '#E05656',
   dangerDim: 'rgba(224,86,86,0.55)',

@@ -14,7 +14,7 @@ import {
   dateFromClockMinutes,
   DEFAULT_BEDTIME_MINUTES,
   formatMinutesAsTime12h,
-} from '../utils/sleepSchedule';
+} from '../domain/sleepSchedule';
 import { SmallCapsLabel } from './SmallCapsLabel';
 
 export type SchedulePickTarget = 'bed' | 'wake';

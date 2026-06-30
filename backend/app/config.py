@@ -1,4 +1,4 @@
-"""YAML-backed config loader with sensible defaults."""
+"""YAML-backed config loader."""
 from __future__ import annotations
 
 import os
@@ -13,7 +13,6 @@ from ml.optimizer import OptimizerConfig
 
 
 def _load_dotenv() -> None:
-    """Load ``backend/.env`` when present. Shell env vars take precedence."""
     if os.environ.get("SLEEPSYNC_SKIP_DOTENV") == "1":
         return
     try:
@@ -30,13 +29,16 @@ _load_dotenv()
 
 @dataclass
 class RiskConfig:
-    grid_size: int = 32
     cold_start_threshold: int = 3
+    prior_peak_t: float = 0.65
+    prior_peak_width: float = 0.12
+    prior_baseline: float = 0.10
+    prior_peak_height: float = 0.55
 
 
 @dataclass
 class VersionsConfig:
-    risk_model: str = "risk-0.1.0"
+    risk_model: str = "heuristic-v0"
     optimizer: str = "opt-0.1.0"
 
 
@@ -47,6 +49,7 @@ class CorsConfig:
     allow_all: bool = False
     allow_origin_regex: str = (
         r"https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?"
+        r"|https://([a-z0-9-]+\.)*vercel\.app"
     )
 
 
@@ -61,14 +64,12 @@ class GoogleHealthConfig:
     """Google Health API OAuth and REST settings.
 
     Secrets are read from the environment, never config.yaml. Connect and sync
-    require a configured OAuth client. See backend/README.md.
+    require a configured OAuth client. See docs/GOOGLE_HEALTH.md.
     """
 
     client_id: str = ""
     client_secret: str = ""
-    # Google OAuth redirect (https) — register this exact URI on the Web server client.
     redirect_uri: str = "http://127.0.0.1:8000/v1/google-health/oauth/callback"
-    # Where to send the user after the backend finishes the code exchange.
     app_return_uri: str = "sleepsync://google-health/callback"
     token_encryption_key: str = ""
     authorize_url: str = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -114,8 +115,11 @@ def get_config() -> AppConfig:
     gh_raw = raw.get("google_health", {})
     return AppConfig(
         risk=RiskConfig(
-            grid_size=int(risk_raw.get("grid_size", 32)),
             cold_start_threshold=int(risk_raw.get("cold_start_threshold", 3)),
+            prior_peak_t=float(risk_raw.get("prior_peak_t", 0.65)),
+            prior_peak_width=float(risk_raw.get("prior_peak_width", 0.12)),
+            prior_baseline=float(risk_raw.get("prior_baseline", 0.10)),
+            prior_peak_height=float(risk_raw.get("prior_peak_height", 0.55)),
         ),
         optimizer=OptimizerConfig(
             dose_max=float(opt_raw.get("dose_max", 1.0)),
@@ -127,7 +131,7 @@ def get_config() -> AppConfig:
             taper_to_zero_at_wake=bool(opt_raw.get("taper_to_zero_at_wake", True)),
         ),
         versions=VersionsConfig(
-            risk_model=str(ver_raw.get("risk_model", "risk-0.1.0")),
+            risk_model=str(ver_raw.get("risk_model", "heuristic-v0")),
             optimizer=str(ver_raw.get("optimizer", "opt-0.1.0")),
         ),
         cors=CorsConfig(
@@ -140,11 +144,9 @@ def get_config() -> AppConfig:
             ),
         ),
         google_health=GoogleHealthConfig(
-            # Secrets: env only.
             client_id=os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
             client_secret=os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
             token_encryption_key=os.environ.get("TOKEN_ENCRYPTION_KEY", ""),
-            # Redirect: env wins, else config.yaml, else dataclass default.
             redirect_uri=os.environ.get(
                 "GOOGLE_HEALTH_REDIRECT_URI",
                 str(gh_raw.get("redirect_uri", GoogleHealthConfig().redirect_uri)),
@@ -153,7 +155,6 @@ def get_config() -> AppConfig:
                 "GOOGLE_HEALTH_APP_RETURN_URI",
                 str(gh_raw.get("app_return_uri", GoogleHealthConfig().app_return_uri)),
             ),
-            # Non-secret endpoints / scopes from config.yaml.
             authorize_url=str(gh_raw.get("authorize_url", GoogleHealthConfig().authorize_url)),
             token_url=str(gh_raw.get("token_url", GoogleHealthConfig().token_url)),
             revoke_url=str(gh_raw.get("revoke_url", GoogleHealthConfig().revoke_url)),
@@ -161,3 +162,44 @@ def get_config() -> AppConfig:
             scopes=[str(s) for s in gh_raw.get("scopes", list(_DEFAULT_GH_SCOPES))],
         ),
     )
+
+
+def sleepsync_env() -> str:
+    return os.environ.get("SLEEPSYNC_ENV", "development").strip().lower()
+
+
+def is_development() -> bool:
+    return sleepsync_env() in ("development", "dev", "local", "test")
+
+
+def is_production() -> bool:
+    return sleepsync_env() in ("production", "prod")
+
+
+_GH_SCOPE_PREFIX = "https://www.googleapis.com/auth/googlehealth."
+
+
+def validate_config(config: AppConfig) -> None:
+    gh = config.google_health
+    if gh.configured:
+        if not gh.token_encryption_key.strip():
+            raise RuntimeError(
+                "TOKEN_ENCRYPTION_KEY is required when Google OAuth client id/secret are set"
+            )
+        from security.token_cipher import parse_fernet_key
+
+        parse_fernet_key(gh.token_encryption_key)
+
+    if is_production() and gh.configured and gh.redirect_uri.startswith("http://"):
+        raise RuntimeError(
+            "GOOGLE_HEALTH_REDIRECT_URI must use https:// in production"
+        )
+
+    if config.cors.allow_all and not is_development():
+        raise RuntimeError("cors.allow_all is only allowed when SLEEPSYNC_ENV=development")
+
+    for scope in gh.scopes:
+        if not scope.startswith(_GH_SCOPE_PREFIX):
+            raise RuntimeError(
+                f"Unexpected Google Health scope (expected {_GH_SCOPE_PREFIX}*): {scope}"
+            )

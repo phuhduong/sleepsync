@@ -1,24 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { Profile } from '../utils/profiles';
-import type { PlanMetadata, RiskPoint } from '../utils/apiTypes';
 import {
   DEFAULT_BEDTIME_MINUTES,
   DEFAULT_WAKE_MINUTES,
   clampMinutes,
-} from '../utils/sleepSchedule';
+} from '../domain/sleepSchedule';
+import type { PendingSession } from '../domain/profiles';
+import { storageGetItem, storageRemoveItem, storageSetItem } from '../services/storage';
 
-export type PendingSession = {
-  profileId: string;
-  startedAt: string;
-};
-
-export type TonightPlanState = {
-  profile: Profile;
-  riskCurve: RiskPoint[];
-  metadata: PlanMetadata;
-  nightId: string;
-};
+export type { PendingSession };
 
 type AppState = {
   bedtimeMinutes: number;
@@ -28,14 +17,13 @@ type AppState = {
   pendingSession: PendingSession | null;
   setPendingSession: (session: PendingSession | null) => void;
   clearPendingSession: () => void;
-  tonightPlan: TonightPlanState | null;
-  setTonightPlan: (plan: TonightPlanState | null) => void;
-  nightId: string | null;
+  hydrated: boolean;
 };
 
 const Ctx = createContext<AppState | null>(null);
 
 const SCHEDULE_STORAGE_KEY = '@sleepsync/schedule';
+const PENDING_SESSION_STORAGE_KEY = '@sleepsync/pending-session';
 
 type StoredSchedule = { bedtimeMinutes: number; wakeMinutes: number };
 
@@ -43,27 +31,45 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [bedtimeMinutes, setBedtimeMinutesState] = useState(DEFAULT_BEDTIME_MINUTES);
   const [wakeMinutes, setWakeMinutesState] = useState(DEFAULT_WAKE_MINUTES);
   const [pendingSession, setPendingSessionState] = useState<PendingSession | null>(null);
-  const [tonightPlan, setTonightPlanState] = useState<TonightPlanState | null>(null);
-  const scheduleHydratedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY);
-        if (!raw || cancelled) return;
-        const parsed = JSON.parse(raw) as Partial<StoredSchedule>;
-        if (typeof parsed.bedtimeMinutes === 'number') {
-          setBedtimeMinutesState(clampMinutes(parsed.bedtimeMinutes));
+      const [scheduleRaw, pendingRaw] = await Promise.all([
+        storageGetItem(SCHEDULE_STORAGE_KEY),
+        storageGetItem(PENDING_SESSION_STORAGE_KEY),
+      ]);
+      if (cancelled) return;
+      if (scheduleRaw) {
+        try {
+          const parsed = JSON.parse(scheduleRaw) as Partial<StoredSchedule>;
+          if (typeof parsed.bedtimeMinutes === 'number') {
+            setBedtimeMinutesState(clampMinutes(parsed.bedtimeMinutes));
+          }
+          if (typeof parsed.wakeMinutes === 'number') {
+            setWakeMinutesState(clampMinutes(parsed.wakeMinutes));
+          }
+        } catch (e) {
+          if (__DEV__) console.warn('[AppState] schedule parse failed', e);
         }
-        if (typeof parsed.wakeMinutes === 'number') {
-          setWakeMinutesState(clampMinutes(parsed.wakeMinutes));
-        }
-      } catch {
-        // ignore — defaults are fine
-      } finally {
-        scheduleHydratedRef.current = true;
       }
+      if (pendingRaw) {
+        try {
+          const parsed = JSON.parse(pendingRaw) as Partial<PendingSession>;
+          if (typeof parsed.profileId === 'string' && typeof parsed.startedAt === 'string') {
+            setPendingSessionState({
+              profileId: parsed.profileId,
+              startedAt: parsed.startedAt,
+            });
+          }
+        } catch (e) {
+          if (__DEV__) console.warn('[AppState] pending session parse failed', e);
+        }
+      }
+      hydratedRef.current = true;
+      if (!cancelled) setHydrated(true);
     })();
     return () => {
       cancelled = true;
@@ -71,9 +77,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!scheduleHydratedRef.current) return;
+    if (!hydratedRef.current) return;
     const payload: StoredSchedule = { bedtimeMinutes, wakeMinutes };
-    AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(payload)).catch(() => {});
+    void storageSetItem(SCHEDULE_STORAGE_KEY, JSON.stringify(payload));
   }, [bedtimeMinutes, wakeMinutes]);
 
   const setBedtimeMinutes = (m: number) => setBedtimeMinutesState(clampMinutes(m));
@@ -81,15 +87,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const setPendingSession = useCallback((session: PendingSession | null) => {
     setPendingSessionState(session);
+    if (!hydratedRef.current) return;
+    if (session === null) {
+      void storageRemoveItem(PENDING_SESSION_STORAGE_KEY);
+      return;
+    }
+    void storageSetItem(PENDING_SESSION_STORAGE_KEY, JSON.stringify(session));
   }, []);
 
   const clearPendingSession = useCallback(() => {
-    setPendingSessionState(null);
-  }, []);
-
-  const setTonightPlan = useCallback((plan: TonightPlanState | null) => {
-    setTonightPlanState(plan);
-  }, []);
+    setPendingSession(null);
+  }, [setPendingSession]);
 
   return (
     <Ctx.Provider
@@ -101,9 +109,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         pendingSession,
         setPendingSession,
         clearPendingSession,
-        tonightPlan,
-        setTonightPlan,
-        nightId: tonightPlan?.nightId ?? null,
+        hydrated,
       }}
     >
       {children}

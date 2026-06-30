@@ -1,17 +1,17 @@
-"""Google Health API OAuth + sync routes.
-
-All routes are keyed by the ``X-User-Id`` header — tokens are stored per user.
-See backend/README.md (Google Health OAuth + sync).
-"""
+"""Google Health OAuth + sync (JWT-scoped)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.config import AppConfig, get_config
+from app.deps import get_current_user_id
+from app.deps import limiter
 from app.services_google_health import (
-    InsufficientSleepDataError,
     GoogleHealthNotConfiguredError,
+    InsufficientSleepDataError,
     NotConnectedError,
     OAuthStateError,
     complete_callback,
@@ -23,45 +23,45 @@ from app.services_google_health import (
     sync,
     sync_outcome,
 )
+from integrations.google_health import GoogleHealthError
 from models.schemas import (
     FeaturesResponse,
     GoogleHealthAuthorizeResponse,
     GoogleHealthCallbackRequest,
-    GoogleHealthStatus,
     GoogleHealthOutcomeSyncRequest,
+    GoogleHealthStatus,
     GoogleHealthSyncRequest,
 )
-from storage.repositories import Repository, get_repository
+from storage.app_db import AppDB
+from storage.db import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/google-health", tags=["google-health"])
 
 
-def _require_user(x_user_id: str | None) -> str:
-    if not x_user_id:
-        raise HTTPException(status_code=400, detail="X-User-Id header required")
-    return x_user_id
-
-
 @router.get("/status", response_model=GoogleHealthStatus)
 def status(
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> GoogleHealthStatus:
-    return get_status(repo, config, _require_user(x_user_id))
+    return get_status(db, config, user_id)
 
 
 @router.get("/oauth/authorize", response_model=GoogleHealthAuthorizeResponse)
+@limiter.limit("20/minute")
 def authorize(
-    returnUri: str | None = None,  # noqa: N803 — app deep link or Expo web origin
-    redirectUri: str | None = None,  # noqa: N803 — deprecated alias for returnUri
-    repo: Repository = Depends(get_repository),
+    request: Request,
+    returnUri: str | None = None,  # noqa: N803
+    redirectUri: str | None = None,  # noqa: N803
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> GoogleHealthAuthorizeResponse:
     app_return = returnUri or redirectUri
     try:
-        return start_authorize(repo, config, _require_user(x_user_id), app_return)
+        return start_authorize(db, config, user_id, app_return)
     except GoogleHealthNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -71,7 +71,7 @@ def oauth_callback_browser(
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
 ) -> RedirectResponse:
     """Google redirects here (https). Exchange the code, then open the app."""
@@ -79,11 +79,12 @@ def oauth_callback_browser(
     fallback = ghc.app_return_uri
     try:
         location = complete_callback_from_google_redirect(
-            repo, config, code=code, state=state, error=error
+            db, config, code=code, state=state, error=error
         )
     except OAuthStateError as exc:
         location = oauth_return_url(fallback, connected=False, error=str(exc))
-    except Exception:  # noqa: BLE001
+    except GoogleHealthError:
+        logger.exception("Google Health OAuth browser callback failed")
         location = oauth_return_url(fallback, connected=False, error="exchange_failed")
     return RedirectResponse(url=location, status_code=302)
 
@@ -91,62 +92,65 @@ def oauth_callback_browser(
 @router.post("/oauth/callback", response_model=GoogleHealthStatus)
 def callback(
     req: GoogleHealthCallbackRequest,
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> GoogleHealthStatus:
-    user_id = _require_user(x_user_id)
     try:
-        return complete_callback(repo, config, user_id, req)
+        return complete_callback(db, config, user_id, req)
     except OAuthStateError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # surface token-exchange failures as 502
-        raise HTTPException(status_code=502, detail=f"OAuth exchange failed: {exc}") from exc
+    except GoogleHealthError as exc:
+        logger.exception("Google Health OAuth callback failed")
+        raise HTTPException(status_code=502, detail="OAuth exchange failed") from exc
 
 
 @router.post("/sync", response_model=FeaturesResponse, status_code=200)
+@limiter.limit("20/minute")
 def sync_features(
+    request: Request,
     req: GoogleHealthSyncRequest,
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> FeaturesResponse:
-    user_id = _require_user(x_user_id)
     try:
-        return sync(repo, config, user_id, req)
+        return sync(db, config, user_id, req)
     except NotConnectedError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except InsufficientSleepDataError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"sync failed: {exc}") from exc
+    except GoogleHealthError as exc:
+        logger.exception("Google Health sync failed")
+        raise HTTPException(status_code=502, detail="sync failed") from exc
 
 
 @router.post("/outcome-sync", status_code=204)
+@limiter.limit("20/minute")
 def outcome_sync(
+    request: Request,
     req: GoogleHealthOutcomeSyncRequest,
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> Response:
-    user_id = _require_user(x_user_id)
     try:
-        sync_outcome(repo, config, user_id, req.nightId, req)
+        sync_outcome(db, config, user_id, req.nightId, req)
     except NotConnectedError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"outcome sync failed: {exc}") from exc
+    except GoogleHealthError as exc:
+        logger.exception("Google Health outcome sync failed")
+        raise HTTPException(status_code=502, detail="outcome sync failed") from exc
     return Response(status_code=204)
 
 
 @router.delete("/connection", status_code=204)
 def delete_connection(
-    repo: Repository = Depends(get_repository),
+    db: AppDB = Depends(get_db),
     config: AppConfig = Depends(get_config),
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    user_id: str = Depends(get_current_user_id),
 ) -> Response:
-    user_id = _require_user(x_user_id)
-    disconnect(repo, config, user_id)
+    disconnect(db, config, user_id)
     return Response(status_code=204)

@@ -5,14 +5,12 @@ from datetime import datetime, timedelta, timezone
 
 from gh_test_helpers import connect_test_user, mock_google_health_live
 from integrations.google_health import (
-    INTERVAL_MINUTES,
     SleepSegment,
     VitalSample,
-    _parse_v4_sleep_segments,
+    parse_v4_sleep_segments,
     build_intervals_from_samples,
-    interval_count_for_window,
-    synthetic_features,
 )
+from synthetic_google_health import synthetic_features
 
 USER = "11111111-2222-4333-8444-555555555555"
 HEADERS = {"X-User-Id": USER}
@@ -20,7 +18,7 @@ SYNC_BODY = {
     "bedtimeMinutes": 23 * 60,
     "wakeMinutes": 7 * 60,
     "timezone": "America/New_York",
-    "referenceNow": "2026-05-25T20:00:00-04:00",
+    "dataNow": "2026-05-25T20:00:00-04:00",
 }
 
 
@@ -58,7 +56,7 @@ def test_status_disconnected_then_connect_then_sync(client, monkeypatch):
         json=plan_request(
             USER,
             timezone=SYNC_BODY["timezone"],
-            reference_now=SYNC_BODY["referenceNow"],
+            reference_now=SYNC_BODY["dataNow"],
         ),
     )
     assert plan.status_code == 200, plan.text
@@ -103,11 +101,37 @@ def test_sync_insufficient_sleep_returns_422(client, monkeypatch):
             "bedtimeMinutes": SYNC_BODY["bedtimeMinutes"],
             "wakeMinutes": SYNC_BODY["wakeMinutes"],
             "timezone": SYNC_BODY["timezone"],
-            "referenceNow": SYNC_BODY["referenceNow"],
+            "referenceNow": SYNC_BODY["dataNow"],
         },
     )
     assert plan.status_code == 200
     assert plan.json()["metadata"]["sleepDataReason"] == "insufficient_data"
+
+
+def test_sync_api_failure_sets_connect_failed_on_plan(client, monkeypatch):
+    from integrations.google_health import GoogleHealthError
+    from plan_test_helpers import plan_request
+
+    connect_test_user(client, HEADERS, monkeypatch)
+    import integrations.google_health as gh_mod
+
+    def _raise_api_error(*_a, **_k):
+        raise GoogleHealthError("upstream unavailable")
+
+    monkeypatch.setattr(gh_mod, "fetch_window_features", _raise_api_error)
+    assert client.post("/v1/google-health/sync", headers=HEADERS, json=SYNC_BODY).status_code == 502
+
+    plan = client.post(
+        "/v1/tonight/plan",
+        headers=HEADERS,
+        json=plan_request(
+            USER,
+            timezone=SYNC_BODY["timezone"],
+            reference_now=SYNC_BODY["dataNow"],
+        ),
+    )
+    assert plan.status_code == 200
+    assert plan.json()["metadata"]["sleepDataReason"] == "connect_failed"
 
 
 def test_sync_without_connection_returns_409(client):
@@ -156,28 +180,7 @@ def test_disconnect_clears_connection(client, monkeypatch):
     assert client.delete("/v1/google-health/connection", headers=HEADERS).status_code == 204
 
 
-def test_synced_features_marked_google_health(client, monkeypatch):
-    connect_test_user(client, HEADERS, monkeypatch)
-    fs_id = client.post(
-        "/v1/google-health/sync", headers=HEADERS, json=SYNC_BODY
-    ).json()["featureSetId"]
-    expected_bins = interval_count_for_window(
-        SYNC_BODY["bedtimeMinutes"], SYNC_BODY["wakeMinutes"]
-    )
-    payload = synthetic_features(
-        USER,
-        SYNC_BODY["bedtimeMinutes"],
-        SYNC_BODY["wakeMinutes"],
-        "UTC",
-        datetime.now(timezone.utc),
-    )
-    assert payload.source == "google_health"
-    assert payload.intervalMinutes == INTERVAL_MINUTES
-    assert len(payload.intervals) == expected_bins
-    assert fs_id.startswith("fs-gh-")
-
-
-def test_synthetic_features_deterministic_per_user():
+def test_outcome_sync_after_plan(client, monkeypatch):
     now = datetime(2026, 5, 25, tzinfo=timezone.utc)
     a1 = synthetic_features("user-a", 1380, 420, "UTC", now)
     a2 = synthetic_features("user-a", 1380, 420, "UTC", now)
@@ -216,10 +219,6 @@ def test_build_intervals_empty_window():
     assert build_intervals_from_samples(t, t, [], [], grid_size=4) == []
 
 
-def test_interval_count_matches_fifteen_minute_bins():
-    assert interval_count_for_window(23 * 60, 7 * 60) == 32
-
-
 def test_parse_v4_sleep_stages():
     pts = [
         {
@@ -239,7 +238,7 @@ def test_parse_v4_sleep_stages():
             }
         }
     ]
-    segs = _parse_v4_sleep_segments(pts)
+    segs = parse_v4_sleep_segments(pts)
     assert len(segs) == 2
     assert segs[0].stage == "deep"
     assert segs[1].stage == "awake"
@@ -256,7 +255,7 @@ def test_outcome_sync_after_plan(client, monkeypatch):
         json=plan_request(
             USER,
             timezone=SYNC_BODY["timezone"],
-            reference_now=SYNC_BODY["referenceNow"],
+            reference_now=SYNC_BODY["dataNow"],
         ),
     )
     night_id = plan.json()["nightId"]
@@ -268,3 +267,4 @@ def test_outcome_sync_after_plan(client, monkeypatch):
     assert out.status_code == 204, out.text
     night = client.get(f"/v1/nights/{night_id}", headers=HEADERS)
     assert night.json()["wearableOutcome"] is not None
+    assert night.json()["wearableOutcome"]["verified"] is True

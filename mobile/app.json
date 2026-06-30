@@ -7,9 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sleepsync",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.phuhduong.sleepsync"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,7 +33,14 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "react-native-ble-plx",
+        {
+          "bluetoothAlwaysPermission": "SleepSync connects to your melatonin patch to deliver tonight's profile.",
+          "neverForLocation": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

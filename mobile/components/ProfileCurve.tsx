@@ -1,7 +1,8 @@
 import Svg, { Defs, LinearGradient, Stop, Path, G, Circle } from 'react-native-svg';
 import { hexToRgb } from '../theme/tokens';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
-import type { Keyframe } from '../utils/profiles';
+import { lerpAtT, smoothPathFromPoints } from '../domain/curveMath';
+import type { Keyframe } from '../domain/profiles';
 
 type Props = {
   keyframes: Keyframe[];
@@ -13,7 +14,6 @@ type Props = {
 
 let gradIdCounter = 0;
 
-/** Horizontal inset — Bed/Wake labels should use the same padding. */
 export const PROFILE_CURVE_PAD_X = 12;
 
 export function ProfileCurve({
@@ -31,13 +31,7 @@ export function ProfileCurve({
   const toY = (d: number) => pad.top + (1 - d) * H;
 
   const pts = keyframes.map(kf => [toX(kf.t), toY(kf.dose)] as [number, number]);
-  let d = `M${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1];
-    const [x1, y1] = pts[i];
-    const cpx = (x0 + x1) / 2;
-    d += ` C${cpx},${y0} ${cpx},${y1} ${x1},${y1}`;
-  }
+  const d = smoothPathFromPoints(pts);
   const fillD =
     d + ` L${pts[pts.length - 1][0]},${pad.top + H} L${pts[0][0]},${pad.top + H} Z`;
 
@@ -45,17 +39,7 @@ export function ProfileCurve({
   let curY = 0;
   if (currentT !== null) {
     curX = toX(currentT);
-    let dose = 0;
-    for (let i = 1; i < keyframes.length; i++) {
-      if (currentT <= keyframes[i].t) {
-        const a = keyframes[i - 1];
-        const b = keyframes[i];
-        const f = (currentT - a.t) / (b.t - a.t);
-        dose = a.dose + f * (b.dose - a.dose);
-        break;
-      }
-    }
-    curY = toY(dose);
+    curY = toY(lerpAtT(keyframes.map((kf) => ({ t: kf.t, value: kf.dose })), currentT));
   }
 
   const gradId = `cg${++gradIdCounter}`;

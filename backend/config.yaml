@@ -1,9 +1,6 @@
-# SleepSync backend configuration — constraint defaults for the optimizer
-# and grid resolution for risk curve / dose profile.
+# SleepSync backend configuration — constraint defaults for the optimizer.
 
 risk:
-  # Number of intervals across the bed→wake window (t ∈ [0, 1]).
-  grid_size: 32
   # Cold-start: nightsAvailable below this triggers conservative prior.
   cold_start_threshold: 3
   # Population prior centered around early-morning wake-maintenance band.
@@ -27,19 +24,18 @@ optimizer:
   taper_to_zero_at_wake: true
 
 versions:
-  risk_model: "risk-0.1.0"
+  risk_model: "heuristic-v0"
   optimizer: "opt-0.1.0"
 
 # Expo web + local dev (native iOS/Android ignores CORS).
 cors:
-  # Regex: localhost, 127.0.0.1, and LAN IPs (e.g. http://192.168.1.5:8081).
-  allow_origin_regex: "https?://(localhost|127\\.0\\.0\\.1|192\\.168\\.\\d{1,3}\\.\\d{1,3})(:\\d+)?"
+  allow_origin_regex: "https?://(localhost|127\\.0\\.0\\.1|192\\.168\\.\\d{1,3}\\.\\d{1,3})(:\\d+)?|https://([a-z0-9-]+\\.)*vercel\\.app"
   # Set true only if you need any origin (e.g. odd tunnel URLs); disables credentials.
   allow_all: false
 
 # Google Health API — non-secret settings (secrets in .env).
 # Secrets come from env: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET,
-# GOOGLE_HEALTH_REDIRECT_URI, TOKEN_ENCRYPTION_KEY. See backend/README.md.
+# GOOGLE_HEALTH_REDIRECT_URI, TOKEN_ENCRYPTION_KEY. See docs/GOOGLE_HEALTH.md.
 google_health:
   authorize_url: "https://accounts.google.com/o/oauth2/v2/auth"
   token_url: "https://oauth2.googleapis.com/token"

@@ -1,0 +1,40 @@
+{
+  "intervalMinutes": 15,
+  "cases": [
+    {
+      "label": "22:30-6:30",
+      "bedtimeMinutes": 1350,
+      "wakeMinutes": 390,
+      "durationMinutes": 480,
+      "intervalCount": 32
+    },
+    {
+      "label": "23:00-7:00",
+      "bedtimeMinutes": 1380,
+      "wakeMinutes": 420,
+      "durationMinutes": 480,
+      "intervalCount": 32
+    },
+    {
+      "label": "10:00-18:00",
+      "bedtimeMinutes": 600,
+      "wakeMinutes": 1080,
+      "durationMinutes": 480,
+      "intervalCount": 32
+    },
+    {
+      "label": "23:00-1:00",
+      "bedtimeMinutes": 1380,
+      "wakeMinutes": 60,
+      "durationMinutes": 120,
+      "intervalCount": 8
+    },
+    {
+      "label": "20:00-midnight",
+      "bedtimeMinutes": 1200,
+      "wakeMinutes": 0,
+      "durationMinutes": 240,
+      "intervalCount": 16
+    }
+  ]
+}

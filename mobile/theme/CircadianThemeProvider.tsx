@@ -6,14 +6,15 @@ import { getCircadianSnapshot, type CircadianSnapshot } from './circadianSchedul
 import {
   dateFromMinutesSinceMidnight,
   minutesSinceMidnight,
-} from './simulatedTime';
-import { DEMO_TIME_SPEED_MULTIPLIER } from '../utils/sessionDemo';
+} from '../domain/sleepSchedule';
 
 const WALL_TICK_MS = 60_000;
 const DEMO_TICK_MS = 100;
+const SESSION_MS = 8 * 60 * 60 * 1000;
+export const DEMO_FULL_SESSION_SECONDS = 60;
+const DEMO_TIME_SPEED_MULTIPLIER = SESSION_MS / (DEMO_FULL_SESSION_SECONDS * 1000);
 
 export type CircadianThemeValue = CircadianSnapshot & {
-  /** Effective “now” for UI, theme, and Live session math. */
   appNow: Date;
 };
 
@@ -23,12 +24,10 @@ const defaultValue: CircadianThemeValue = { ...defaultSnapshot, appNow: new Date
 const CircadianCtx = createContext<CircadianThemeValue>(defaultValue);
 
 export type CircadianDevControls = {
-  /** Following the device clock (not scrubbing or fast-forwarding). */
   usesDeviceClock: boolean;
   followDeviceClock: () => void;
   setSimulatedMinutes: (minutes: number) => void;
   bumpSimulatedMinutes: (delta: number) => void;
-  /** Advances `appNow` quickly — drives theme, Live profile, and on-screen clock. */
   demoAccelerating: boolean;
   setDemoAccelerating: (enabled: boolean) => void;
 };
@@ -73,7 +72,6 @@ export function CircadianThemeProvider({ children }: { children: React.ReactNode
     setDemoAcceleratingState(enabled);
   }, []);
 
-  // Device clock — production always; dev when not simulating.
   useEffect(() => {
     if (__DEV__ && (simulatedAt !== null || demoAccelerating)) return;
 
@@ -89,13 +87,11 @@ export function CircadianThemeProvider({ children }: { children: React.ReactNode
     };
   }, [simulatedAt, demoAccelerating]);
 
-  // Dev: frozen scrub — keep theme aligned when simulatedAt changes without fast-forward.
   useEffect(() => {
     if (!__DEV__ || demoAccelerating || simulatedAt === null) return;
     setAppNow(simulatedAt);
   }, [simulatedAt, demoAccelerating]);
 
-  // Dev: fast-forward simulated clock (theme + Live session + Live header clock).
   useEffect(() => {
     if (!__DEV__ || !demoAccelerating) return;
 
@@ -161,17 +157,14 @@ export function useAppNow(): Date {
   return useCircadianTheme().appNow;
 }
 
-/** UI token colors for the current time of day. */
 export function useCircadianColors(): ThemeColors {
   return useCircadianTheme().colors;
 }
 
-/** Sky RGB 0–1 for the aurora shader. */
 export function useCircadianSky(): SkyAnchor {
   return useCircadianTheme().sky;
 }
 
-/** Dev-only tools. `null` in production builds. */
 export function useCircadianDev(): CircadianDevControls | null {
   const dev = useContext(CircadianDevCtx);
   if (!__DEV__) return null;

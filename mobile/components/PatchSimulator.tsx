@@ -30,7 +30,6 @@ function lightenRgb(rgb: Rgb, amount: number): Rgb {
   return mixRgbTuple(rgb, [255, 255, 255], t);
 }
 
-/** Membrane + shell colors derived from the active circadian palette. */
 function usePatchPalette(colors: ReturnType<typeof useCircadianColors>) {
   return useMemo(() => {
     const accent = hexToRgb(colors.accent);
@@ -85,13 +84,11 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
   const palette = usePatchPalette(colors);
   const gradId = useId().replace(/:/g, '');
   const d2 = dose * dose;
-  /** Tracks delivery: invisible at delayed start / end of night, strongest mid-session */
   const membraneGlow = clamp01(dose) ** 0.92;
   const br = Math.round(size * 0.17);
   const haloSize = Math.round(size * 1.5);
   const haloPad = Math.round((haloSize - size) / 2);
 
-  /** Inset from outer patch edge (px). Inner corner radius = outer − inset keeps curves concentric. */
   const padAdhesive = Math.round(size * 0.08);
   const padMembrane = Math.round(size * 0.2);
   const rAdhesive = Math.max(0, br - padAdhesive);
@@ -141,7 +138,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
 
   return (
     <View style={{ width: haloSize, height: haloSize, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Halo + shadow glow — pulses together. Circular by design so the composition reads as a ring. */}
       <Animated.View style={{ position: 'absolute', width: haloSize, height: haloSize, opacity: pulse }}>
         <Svg
           width={haloSize}
@@ -171,7 +167,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
         <View style={glow(0, d2 * 0.20, Math.max(16, d2 * 100))} />
       </Animated.View>
 
-      {/* Patch surface — steady, no opacity animation. */}
       <Pressable
         onPress={onPress}
         style={{
@@ -191,7 +186,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
           end={{ x: 0.84, y: 0.95 }}
           style={{ flex: 1 }}
         >
-          {/* Shell vignette — depth without competing with the membrane */}
           <LinearGradient
             pointerEvents="none"
             colors={palette.shellVignette}
@@ -200,7 +194,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          {/* Adhesive border ring — inner radius = outer − inset so curves stay parallel to the shell */}
           <View
             style={{
               position: 'absolute',
@@ -214,7 +207,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
             }}
           />
 
-          {/* Delivery membrane — glowing inset window */}
           <View
             style={{
               position: 'absolute',
@@ -234,7 +226,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
               style={StyleSheet.absoluteFill}
             >
               <Defs>
-                {/* Fully opaque stops — varying stopOpacity let the halo SVG behind bleed through and read as a ring */}
                 <RadialGradient id={`membrane-${gradId}`} cx="50%" cy="50%" rx="88%" ry="88%" fx="50%" fy="50%">
                   <Stop offset="0%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[0], membraneGlow)} />
                   <Stop offset="26%" stopColor={mixRgb(palette.membraneIdle, palette.membraneVividStops[1], membraneGlow)} />
@@ -255,7 +246,6 @@ export function PatchSimulator({ dose = 0, isActive = true, onPress, size = 200 
                 strokeWidth={StyleSheet.hairlineWidth}
               />
             </Svg>
-            {/* Hairline sheen only — full-area overlays were shading the center and reinforcing a ring */}
             <LinearGradient
               pointerEvents="none"
               colors={[`rgba(${shR},${shG},${shB},${sheenA})`, 'rgba(255,255,255,0)']}

@@ -6,7 +6,6 @@ type Props = {
   value: number | null;
   max?: number;
   onChange?: (n: number) => void;
-  /** No press; use on history / read-only surfaces */
   readOnly?: boolean;
 };
 

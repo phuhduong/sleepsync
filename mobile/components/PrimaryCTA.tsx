@@ -10,17 +10,12 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
-  /** Pill gradient (legacy), or frosted neutral-grey glass (default — matches Tonight CTA). */
   variant?: 'gradient' | 'glassDark';
 };
 
-/** Dark warm gray → slightly deeper plum-gray; purple is ambient, not loud. */
 const FILL = ['#383442', '#2C2834'] as const;
 const FILL_DISABLED = ['#2E3038', '#26282E'] as const;
 
-/**
- * Primary CTA — default is frosted neutral-grey glass (`glassDark`). Pass `variant="gradient"` for the legacy plum-gray gradient pill.
- */
 export function PrimaryCTA({
   label,
   onPress,
@@ -117,7 +112,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     borderRadius: 999,
-    /* Neutral grey — lighter than the sheet so the CTA reads as the obvious tap target. */
     backgroundColor: 'rgba(92,92,96,0.72)',
     overflow: 'hidden',
   },

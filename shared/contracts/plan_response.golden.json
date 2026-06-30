@@ -1,0 +1,35 @@
+{
+  "nightId": "night-contract-golden",
+  "profile": {
+    "id": "generated-contract",
+    "name": "Tonight's Plan",
+    "recommended": true,
+    "rationale": "Balanced overnight curve.",
+    "keyframes": [
+      { "t": 0.0, "dose": 0.0, "label": null },
+      { "t": 0.15, "dose": 0.0, "label": "Delayed" },
+      { "t": 0.35, "dose": 1.0, "label": "Ramp" },
+      { "t": 1.0, "dose": 0.0, "label": null }
+    ],
+    "phases": [
+      { "id": "delayed", "name": "Delayed Start", "duration": 0.15, "dose": 0.0 },
+      { "id": "ramp", "name": "Ramp Up", "duration": 0.2, "dose": 1.0 },
+      { "id": "sustained", "name": "Sustained", "duration": 0.45, "dose": 1.0 },
+      { "id": "taper", "name": "Taper", "duration": 0.15, "dose": 0.4 },
+      { "id": "prewake", "name": "Pre-wake", "duration": 0.05, "dose": 0.1 }
+    ]
+  },
+  "riskCurve": [
+    { "t": 0.015625, "p": 0.14, "tEnd": 0.03125 },
+    { "t": 0.984375, "p": 0.26, "tEnd": 1.0 }
+  ],
+  "metadata": {
+    "modelVersion": "heuristic-v0-opt-0.1.0",
+    "coldStart": true,
+    "constraintsHit": ["cold_start"],
+    "generatedAt": "2026-05-24T20:00:00Z",
+    "nightId": "night-contract-golden",
+    "sleepDataSource": "mock",
+    "sleepDataReason": "not_connected"
+  }
+}

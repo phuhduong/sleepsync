@@ -7,13 +7,16 @@ import {
   useRef,
   useState,
 } from 'react';
+import { STALE_AFTER_MS } from '../constants';
 import {
   clearCachedPlan,
+} from '../services/planService';
+import {
   disconnectGoogleHealth,
   getGoogleHealthStatus,
-} from '../utils/apiClient';
-import { connectGoogleHealth } from '../utils/googleHealthAuth';
-import type { GoogleHealthStatus } from '../utils/apiTypes';
+} from '../services/googleHealthApi';
+import { connectGoogleHealth } from '../services/googleHealthAuth';
+import type { GoogleHealthStatus } from '../types/plan';
 
 const ENABLED = process.env.EXPO_PUBLIC_GOOGLE_HEALTH_ENABLED !== '0';
 
@@ -24,7 +27,7 @@ export type UseGoogleHealthResult = {
   loading: boolean;
   busy: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { force?: boolean }) => Promise<void>;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
 };
@@ -37,6 +40,7 @@ export function GoogleHealthProvider({ children }: { children: React.ReactNode }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  const lastRefreshAtRef = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
@@ -45,14 +49,19 @@ export function GoogleHealthProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: { force?: boolean } = {}) => {
     if (!ENABLED) return;
+    const { force = false } = options;
+    const ageMs = Date.now() - lastRefreshAtRef.current;
+    if (!force && lastRefreshAtRef.current > 0 && ageMs < STALE_AFTER_MS) return;
+
     setLoading(true);
     try {
       const s = await getGoogleHealthStatus();
       if (mounted.current) {
         setStatus(s);
         setError(null);
+        lastRefreshAtRef.current = Date.now();
       }
     } catch (err) {
       if (mounted.current) setError((err as Error).message);
@@ -70,7 +79,7 @@ export function GoogleHealthProvider({ children }: { children: React.ReactNode }
       if (!mounted.current) return;
       if (result.ok) {
         setStatus(result.status);
-        await refresh();
+        await refresh({ force: true });
       } else if (result.reason === 'error') {
         setError(result.message ?? 'Could not connect');
       }
@@ -93,7 +102,7 @@ export function GoogleHealthProvider({ children }: { children: React.ReactNode }
             : { connected: false, scopes: [] },
         );
       }
-      await refresh();
+      await refresh({ force: true });
     } catch (err) {
       if (mounted.current) setError((err as Error).message);
     } finally {
@@ -102,7 +111,7 @@ export function GoogleHealthProvider({ children }: { children: React.ReactNode }
   }, [busy, refresh]);
 
   useEffect(() => {
-    refresh();
+    void refresh({ force: true });
   }, [refresh]);
 
   const value = useMemo<UseGoogleHealthResult>(

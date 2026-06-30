@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { useCircadianColors } from '../theme/CircadianThemeProvider';
-import type { Phase } from '../utils/profiles';
+import type { Phase } from '../domain/profiles';
 
 type Props = {
   phases: Phase[];

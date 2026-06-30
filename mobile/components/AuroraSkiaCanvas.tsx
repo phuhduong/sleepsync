@@ -3,14 +3,8 @@ import { Dimensions, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { Canvas, Fill, Shader, vec } from '@shopify/react-native-skia';
 import type { BackgroundCanvasProps, SkyUniforms } from './backgroundCanvasTypes';
 import { CIRCADIAN_ANCHORS } from '../theme/circadianPalettes';
+import { unitRgbCss } from '../theme/colorUtils';
 import { compileAuroraShader } from './auroraShader';
-
-function skyRgbCss(rgb: [number, number, number]): string {
-  const r = Math.round(rgb[0] * 255);
-  const g = Math.round(rgb[1] * 255);
-  const b = Math.round(rgb[2] * 255);
-  return `rgb(${r},${g},${b})`;
-}
 
 function skyShaderUniforms(sky: SkyUniforms) {
   const [zr, zg, zb] = sky.zenith;
@@ -33,7 +27,6 @@ const TWO_PI = Math.PI * 2;
 const BASE_ORBIT_MS = 17500;
 const RAD_PER_MS = TWO_PI / BASE_ORBIT_MS;
 
-/** Props can be 0 before first layout — fall back so Skia canvas is never a tiny square. */
 const MIN_DIM = 32;
 
 const DEFAULT_SKY: SkyUniforms = CIRCADIAN_ANCHORS.night.sky;
@@ -85,7 +78,7 @@ export default function AuroraSkiaCanvas({
   }, []);
 
   const skyUniforms = skyShaderUniforms(sky);
-  const underlay = skyRgbCss(sky.horizon);
+  const underlay = unitRgbCss(sky.horizon);
 
   if (!runtimeEffect) {
     return (

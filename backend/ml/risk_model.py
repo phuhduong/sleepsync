@@ -1,11 +1,9 @@
-"""Wake-risk classifier — per-interval risk over the upcoming sleep window.
-
-Hand-tuned logistic weights produce a cold-start curve; optional ``fit()`` retrains
-from labeled intervals. Outputs only a risk curve — the optimizer builds the profile.
-"""
+"""Wake-risk logistic classifier; outputs risk curve only (optimizer builds profile)."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -15,28 +13,24 @@ from models.schemas import FeaturesPayload, RiskPoint
 from .features import RollupVector, feature_names, interval_feature_matrix
 
 
-# Hand-tuned weights producing a calibrated cold-start logistic curve. Order
-# matches `features.feature_names()`.
+# Hand-tuned cold-start weights; order matches feature_names().
 DEFAULT_WEIGHTS = np.array(
-    [
-        2.20,   # t            — risk rises through the night
-        -1.40,  # t_sq         — but peaks before wake (concave bend)
-        0.00,   # sin_t        — circadian (neutral by default)
-        -0.30,  # cos_t        — slight phase preference for late-night peak
-        2.40,   # awake_frac   — current awake → higher risk
-        1.10,   # minutes_awake_scaled
-        -0.40,  # hrv_z        — high HRV → calmer → lower risk
-        0.35,   # hr_z         — high HR → higher risk
-        0.20,   # resp_z       — irregular breathing → modest risk
-    ]
+    [2.20, -1.40, 0.00, -0.30, 2.40, 1.10, -0.40, 0.35, 0.20]
 )
-DEFAULT_BIAS = -1.60  # tuned so baseline ≈ 0.10 and peak ≈ 0.55
+DEFAULT_BIAS = -1.60
+ARTIFACT_VERSION = "risk-v1.0.0"
+
+
+@dataclass(frozen=True)
+class PopulationPrior:
+    peak_t: float
+    peak_width: float
+    baseline: float
+    peak_height: float
 
 
 @dataclass
 class RiskCurve:
-    """Output of the risk model — per-interval probabilities."""
-
     t_centers: np.ndarray  # (N,)
     p: np.ndarray  # (N,) in [0, 1]
     cold_start: bool
@@ -58,16 +52,22 @@ class RiskCurve:
 
 
 class RiskModel:
-    """Logistic per-interval classifier with hand-tuned default weights."""
-
-    version = "risk-0.1.0"
+    version = "heuristic-v0"
 
     def __init__(
         self,
         weights: Optional[np.ndarray] = None,
-        bias: float = DEFAULT_BIAS,
+        bias: float | None = None,
     ) -> None:
-        self.weights = DEFAULT_WEIGHTS.copy() if weights is None else np.asarray(weights)
+        artifact = _load_artifact_weights()
+        if weights is None and artifact is not None:
+            weights, bias = artifact
+            self.version = ARTIFACT_VERSION
+        if weights is None:
+            weights = DEFAULT_WEIGHTS.copy()
+        if bias is None:
+            bias = DEFAULT_BIAS
+        self.weights = np.asarray(weights)
         self.bias = float(bias)
         assert self.weights.shape == (len(feature_names()),), (
             f"weight dim mismatch: {self.weights.shape}"
@@ -89,6 +89,7 @@ class RiskModel:
         grid_size: int,
         nights_available: int,
         cold_start_threshold: int,
+        population_prior: PopulationPrior | None = None,
     ) -> RiskCurve:
         cold_start = nights_available < cold_start_threshold or payload is None
 
@@ -100,6 +101,8 @@ class RiskModel:
 
         logits = X @ self.weights + self.bias
         logits += _rollup_offset(rollups, t_centers)
+        if payload is None and population_prior is not None:
+            logits += _prior_logit_offset(t_centers, population_prior)
         p = _sigmoid(logits)
         p = np.clip(p, 0.02, 0.95)
         return RiskCurve(t_centers=t_centers, p=p, cold_start=cold_start)
@@ -149,3 +152,28 @@ def _rollup_offset(rollups: RollupVector, t_centers: np.ndarray) -> np.ndarray:
 
 def _bump(t: np.ndarray, center: float, width: float) -> np.ndarray:
     return np.exp(-0.5 * ((t - center) / width) ** 2)
+
+
+def _prior_logit_offset(t_centers: np.ndarray, prior: PopulationPrior) -> np.ndarray:
+    bump = _bump(t_centers, center=prior.peak_t, width=prior.peak_width)
+    target = np.clip(prior.baseline + prior.peak_height * bump, 0.05, 0.90)
+    neutral = 0.5
+    return np.log(target / (1.0 - target)) - np.log(neutral / (1.0 - neutral))
+
+
+def _load_artifact_weights() -> tuple[np.ndarray, float] | None:
+    """Load trained weights from RISK_MODEL_ARTIFACT (.npz from train_risk_model)."""
+    raw = os.environ.get("RISK_MODEL_ARTIFACT", "").strip()
+    if not raw:
+        default = Path(__file__).resolve().parent / "risk_model_weights.npz"
+        path = default if default.is_file() else None
+    else:
+        path = Path(raw)
+    if path is None or not path.is_file():
+        return None
+    data = np.load(path)
+    weights = np.asarray(data["weights"], dtype=float)
+    bias = float(data["bias"])
+    if weights.shape != (len(feature_names()),):
+        raise ValueError(f"artifact feature dim mismatch: {weights.shape}")
+    return weights, bias

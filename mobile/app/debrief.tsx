@@ -1,5 +1,5 @@
 import { ScrollView, View, Text, Pressable, TextInput } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '../theme/tokens';
@@ -10,17 +10,17 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { DotScale } from '../components/DotScale';
 import { PrimaryCTA } from '../components/PrimaryCTA';
 import { useAppState } from '../state/AppState';
-import { OFFLINE_FALLBACK_PROFILE_ID, findProfile } from '../utils/profiles';
-import { invalidateSessionLog } from '../utils/sessionLog';
-import { ApiError, syncDebrief } from '../utils/apiClient';
-import { syncGoogleHealthOutcomeAfterDebrief } from '../utils/googleHealthOutcomeSync';
-import { flushDeliveryLog } from '../utils/flushDeliveryLog';
-import { getPatchTransport } from '../utils/patchTransportInstance';
-import { getUserId } from '../utils/identity';
+import { useTonightPlan } from '../state/TonightPlanContext';
+import { OFFLINE_PROFILE, type SessionWoke } from '../domain/profiles';
+import { invalidateSessionLog } from '../services/sessionLog';
+import { ApiError } from '../services/http';
+import { syncDebrief } from '../services/nightsApi';
+import { syncGoogleHealthOutcome } from '../services/googleHealthApi';
+import { getPatchTransport } from '../services/patchTransport';
+import { timezoneName } from '../domain/sleepSchedule';
+import { getUserId } from '../services/identity';
+import { isOfflineNightId } from '../types/plan';
 import { useGoogleHealth } from '../state/GoogleHealthContext';
-import type { SessionWoke } from '../utils/profiles';
-
-type Woke = SessionWoke;
 
 export default function DebriefScreen() {
   const colors = useCircadianColors();
@@ -73,16 +73,10 @@ export default function DebriefScreen() {
   }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    pendingSession,
-    clearPendingSession,
-    nightId,
-    tonightPlan,
-    bedtimeMinutes,
-    wakeMinutes,
-  } = useAppState();
+  const { pendingSession, clearPendingSession, bedtimeMinutes, wakeMinutes } = useAppState();
+  const { plan: tonightPlan, nightId, clearPlan } = useTonightPlan();
 
-  const [woke, setWoke] = useState<Woke | null>(null);
+  const [woke, setWoke] = useState<SessionWoke | null>(null);
   const [groggy, setGroggy] = useState<number | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -93,8 +87,21 @@ export default function DebriefScreen() {
 
   const canSave = woke !== null && groggy !== null;
 
+  useEffect(() => {
+    if (!nightId && !pendingSession) {
+      router.replace('/' as never);
+    }
+  }, [nightId, pendingSession, router]);
+
+  const offlineNight = isOfflineNightId(nightId);
+  const offlineBlock =
+    offlineNight && pendingSession
+      ? 'Tonight\'s plan is offline-only. Connect to the server, refresh Tonight, then save your debrief.'
+      : null;
+
   const skip = () => {
     clearPendingSession();
+    if (offlineNight) clearPlan();
     router.replace('/' as never);
   };
 
@@ -102,9 +109,7 @@ export default function DebriefScreen() {
     if (!canSave || saving || saved) return;
     setSaving(true);
     setSaveError(null);
-    const prof =
-      tonightPlan?.profile ??
-      findProfile(pendingSession?.profileId ?? OFFLINE_FALLBACK_PROFILE_ID);
+    const prof = tonightPlan?.profile ?? OFFLINE_PROFILE;
     const trimmedNote = note.trim() || undefined;
     const startedAt = pendingSession?.startedAt ?? new Date().toISOString();
     if (!nightId) {
@@ -112,13 +117,19 @@ export default function DebriefScreen() {
       setSaving(false);
       return;
     }
-    if (nightId.startsWith('night-offline-')) {
+    if (isOfflineNightId(nightId)) {
       setSaveError('Plan is offline-only. Start the SleepSync API and refresh Tonight before saving.');
       setSaving(false);
       return;
     }
     try {
-      await flushDeliveryLog(getPatchTransport(), nightId);
+      const transport = getPatchTransport();
+      const deliveryFlushed = await transport.flushDeliveryLog(nightId);
+      if (!deliveryFlushed) {
+        setSaveError('Delivery log could not upload. Check your connection and try again.');
+        setSaving(false);
+        return;
+      }
       const userId = await getUserId();
       const completedAt = new Date().toISOString();
       await syncDebrief(nightId, {
@@ -132,11 +143,12 @@ export default function DebriefScreen() {
       });
       if (googleHealthConnected) {
         try {
-          await syncGoogleHealthOutcomeAfterDebrief({
+          await syncGoogleHealthOutcome({
             nightId,
             bedtimeMinutes,
             wakeMinutes,
-            now: new Date(completedAt),
+            timezone: timezoneName(),
+            dataNow: completedAt,
           });
         } catch (outcomeErr) {
           if (typeof __DEV__ !== 'undefined' && __DEV__) {
@@ -146,6 +158,7 @@ export default function DebriefScreen() {
       }
       invalidateSessionLog();
       clearPendingSession();
+      clearPlan();
       setSaved(true);
       setTimeout(() => router.replace('/' as never), 1200);
     } catch (e) {
@@ -172,11 +185,11 @@ export default function DebriefScreen() {
 
       <View style={{ marginTop: 36 }}>
         <Text style={styles.qLabel}>Did you wake during the night?</Text>
-        <SegmentedControl<Woke>
+        <SegmentedControl<SessionWoke>
           options={[
             { value: 'no', label: 'No' },
             { value: 'yes', label: 'Yes' },
-            { value: 'unsure', label: "Can't say" },
+            { value: 'unsure', label: "Can't Say" },
           ]}
           value={woke}
           onChange={setWoke}
@@ -219,7 +232,9 @@ export default function DebriefScreen() {
           </View>
         ) : (
           <>
-            {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
+            {saveError ?? offlineBlock ? (
+              <Text style={styles.saveError}>{saveError ?? offlineBlock}</Text>
+            ) : null}
             <PrimaryCTA
               label="Save & Done"
               onPress={save}
@@ -231,7 +246,11 @@ export default function DebriefScreen() {
 
       <View style={{ marginTop: 18, alignItems: 'center' }}>
         <Pressable onPress={skip} hitSlop={6}>
-          <Text style={styles.skipText}>Didn&apos;t use the patch tonight →</Text>
+          <Text style={styles.skipText}>
+            {offlineNight
+              ? 'Discard offline session and return to Tonight →'
+              : 'Didn\'t use the patch tonight →'}
+          </Text>
         </Pressable>
       </View>
     </ScrollView>

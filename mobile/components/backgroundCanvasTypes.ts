@@ -1,4 +1,3 @@
-/** Props for `BackgroundCanvas` / `AuroraSkiaCanvas` — shared so web lazy-load avoids circular imports. */
 export type SkyUniforms = {
   zenith: [number, number, number];
   horizon: [number, number, number];

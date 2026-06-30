@@ -1,16 +1,11 @@
 import { Skia } from '@shopify/react-native-skia';
 
-/**
- * Night sky with soft volumetric-style clouds (simplex-ish noise + FBM).
- * Adapted from classic “sky + clouds” shaders; palette/motion tuned for SleepSync (quiet, dark).
- * `pos` is pixel coordinates in canvas space.
- */
 export const BACKGROUND_SKSL = `
 uniform vec2 uResolution;
 uniform float uTime;
 uniform vec2 uSwipe;
 uniform float uGrain;
-// Separate floats — vec3 uniforms are unreliable across Skia / CanvasKit targets.
+// Skia vec3 uniforms are unreliable on some CanvasKit targets.
 uniform float uZenithR;
 uniform float uZenithG;
 uniform float uZenithB;
@@ -21,7 +16,7 @@ uniform float uCloudR;
 uniform float uCloudG;
 uniform float uCloudB;
 
-// Same linear transform as mat2(1.6, 1.2, -1.2, 1.6) column vectors (explicit for SkSL portability).
+// Explicit mat2 linear transform for SkSL portability.
 vec2 mMul(vec2 v) {
   return vec2(1.6 * v.x - 1.2 * v.y, 1.2 * v.x + 1.6 * v.y);
 }
@@ -157,12 +152,12 @@ vec4 main(vec2 fragCoord) {
 }
 `;
 
-/** Compiled after Skia native / CanvasKit is ready; null means shader SkSL rejected on device. */
+/** Returns null when SkSL compile fails on device. */
 export function compileAuroraShader(): ReturnType<typeof Skia.RuntimeEffect.Make> {
   const src = BACKGROUND_SKSL.trim();
   const effect = Skia.RuntimeEffect.Make(src);
   if (!effect && typeof __DEV__ !== 'undefined' && __DEV__) {
-    console.warn('[Background] SkSL compile failed — shader disabled until fixed.');
+    console.warn('[Background] SkSL compile failed, shader disabled.');
   }
   return effect;
 }

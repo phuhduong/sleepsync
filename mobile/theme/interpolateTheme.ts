@@ -91,7 +91,6 @@ export function anchorById(id: CircadianAnchorId): CircadianAnchor {
   return CIRCADIAN_ANCHORS[id];
 }
 
-/** Relative luminance 0–1 for status bar contrast. */
 export function luminanceFromHex(hex: string): number {
   const [r, g, b] = hexToRgb(hex);
   const srgb = [r, g, b].map((c) => {

@@ -3,9 +3,9 @@ import { anchorById, blendAnchors } from './interpolateTheme';
 import type { SkyAnchor } from './circadianPalettes';
 import type { ThemeColors } from './circadianPalettes';
 import { luminanceFromHex } from './interpolateTheme';
+import { minutesSinceMidnight } from '../domain/sleepSchedule';
 
 type Segment = {
-  /** Minutes from midnight [0, 1440). */
   startMin: number;
   endMin: number;
   from: CircadianAnchorId;
@@ -13,7 +13,6 @@ type Segment = {
   label: string;
 };
 
-/** Local-clock bands — tunable. */
 const SEGMENTS: Segment[] = [
   { startMin: 0, endMin: 5 * 60, from: 'night', to: 'night', label: 'Night' },
   { startMin: 5 * 60, endMin: 8 * 60, from: 'night', to: 'sunriseSunset', label: 'Sunrise' },
@@ -32,10 +31,6 @@ export type CircadianSnapshot = {
   blendT: number;
 };
 
-function minutesSinceMidnight(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-}
-
 function resolveSegment(min: number): { segment: Segment; t: number } {
   const m = ((min % 1440) + 1440) % 1440;
   for (const segment of SEGMENTS) {
@@ -48,7 +43,6 @@ function resolveSegment(min: number): { segment: Segment; t: number } {
   return { segment: SEGMENTS[0], t: 0 };
 }
 
-/** Snapshot for a wall-clock minute (0–1440) — used by dev time scrubber. */
 export function getCircadianSnapshotAtMinutes(minutesSinceMidnight: number): CircadianSnapshot {
   const { segment, t } = resolveSegment(minutesSinceMidnight);
   const from = anchorById(segment.from);
@@ -68,7 +62,6 @@ export function getCircadianSnapshot(now: Date = new Date()): CircadianSnapshot 
   return getCircadianSnapshotAtMinutes(minutesSinceMidnight(now));
 }
 
-/** Dev-only presets — midpoints of each circadian band. */
 export const CIRCADIAN_DEBUG_PRESETS = [
   { label: 'Night', minutes: 2 * 60 },
   { label: 'Sunrise', minutes: 6 * 60 + 30 },
@@ -76,11 +69,3 @@ export const CIRCADIAN_DEBUG_PRESETS = [
   { label: 'Sunset', minutes: 18 * 60 + 15 },
   { label: 'Dusk', minutes: 20 * 60 + 30 },
 ] as const;
-
-export function formatMinutesAsClock(minutesSinceMidnight: number): string {
-  const m = Math.floor(((minutesSinceMidnight % 1440) + 1440) % 1440);
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  const d = new Date(2000, 0, 1, h, min, 0, 0);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-}

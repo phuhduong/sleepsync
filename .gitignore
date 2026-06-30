@@ -1,8 +1,8 @@
-# Local-only (agents, design notes, editor project state)
-CLAUDE.md
+# Local-only (design notes, editor project state)
 .claude/
 .cursor/
 DESIGN_BRIEF.md
+docs/DEPLOY.md
 
 # Secrets & env — commit only *.env.example templates
 .env
